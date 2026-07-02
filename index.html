@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#1a73e8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Zähler-App">
+<title>Zähler-App</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#222636;--surface3:#2a2f45;
+  --text:#f0f2ff;--text2:#8b90a7;--text3:#555a72;
+  --accent:#3d8ef8;--accent2:#5ba3ff;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --warning-bg:rgba(251,191,36,0.12);--warning-text:#fbbf24;
+  --success-bg:rgba(52,211,153,0.12);--success-text:#34d399;
+  --danger:#f87171;--danger-bg:rgba(248,113,113,0.12);
+  --water:#22d3ee;--water-bg:rgba(34,211,238,0.12);--water-dark:#0891b2;
+  --heat:#fb923c;--heat-bg:rgba(251,146,60,0.12);--heat-dark:#c2410c;
+  --radius:12px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.screen{display:none;flex-direction:column;min-height:100vh}.screen.active{display:flex}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+.topbar h1{font-size:17px;font-weight:700;flex:1;letter-spacing:-0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.accent{color:var(--accent2)}
+.back-btn{background:none;border:none;cursor:pointer;color:var(--accent2);font-size:14px;font-weight:500;padding:4px 0;display:flex;align-items:center;gap:2px;white-space:nowrap}
+.btn-icon{background:var(--surface2);border:1px solid var(--border2);cursor:pointer;color:var(--text2);padding:8px;border-radius:10px;display:flex;align-items:center;font-size:18px;flex-shrink:0}
+.content{flex:1;padding:16px;display:flex;flex-direction:column;gap:14px;padding-bottom:88px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:4px 14px}
+.card-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--border);cursor:pointer}
+.card-row:last-child{border-bottom:none}
+.icon-wrap{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px}
+.row-info{flex:1;min-width:0}
+.row-title{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-sub{font-size:12px;color:var(--text2);margin-top:3px}
+.chevron{color:var(--text3);font-size:16px;flex-shrink:0}
+.fab{position:fixed;bottom:24px;right:16px;width:56px;height:56px;border-radius:18px;background:linear-gradient(135deg,#2d6fd4,#3d8ef8);color:#fff;border:none;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(61,142,248,0.4)}
+.empty{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty i{font-size:56px;margin-bottom:16px;display:block;opacity:0.4}
+.empty p{font-size:15px;line-height:1.6;opacity:0.7}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:100;align-items:flex-end}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:24px 24px 0 0;border-top:1px solid var(--border2);padding:12px 16px 44px;width:100%;max-height:90vh;overflow-y:auto}
+.modal-handle{width:36px;height:4px;background:var(--surface3);border-radius:2px;margin:0 auto 20px}
+.modal h2{font-size:18px;font-weight:700;margin-bottom:20px}
+.field{margin-bottom:14px}
+.field label{font-size:11px;color:var(--text2);margin-bottom:6px;display:block;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.field input,.field select{width:100%;padding:12px 14px;border:1px solid var(--border2);border-radius:var(--radius);font-size:16px;background:var(--surface2);color:var(--text);-webkit-appearance:none;appearance:none}
+.field input:focus,.field select:focus{outline:none;border-color:var(--accent)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.toggle-row{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--border2);border-radius:var(--radius);margin:4px 0 14px;background:var(--surface2)}
+.toggle-label{flex:1;font-size:15px;font-weight:500}
+.toggle-label small{display:block;font-size:12px;color:var(--text2);margin-top:2px;font-weight:400}
+.toggle{width:48px;height:28px;background:var(--surface3);border-radius:14px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;border:1px solid var(--border2)}
+.toggle.on{background:var(--accent);border-color:var(--accent)}
+.toggle::after{content:'';width:20px;height:20px;background:#fff;border-radius:50%;position:absolute;top:3px;left:3px;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.toggle.on::after{left:23px}
+.btn-row{display:flex;gap:10px;margin-top:8px}
+.btn-primary{flex:1;padding:14px;background:linear-gradient(135deg,#2d6fd4,#3d8ef8);color:#fff;border:none;border-radius:var(--radius);font-size:16px;font-weight:600;cursor:pointer}
+.btn-secondary{flex:1;padding:14px;background:var(--surface2);color:var(--text2);border:1px solid var(--border2);border-radius:var(--radius);font-size:16px;cursor:pointer}
+.type-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px}
+.type-btn{padding:14px 8px;border:1px solid var(--border2);border-radius:var(--radius);background:var(--surface2);cursor:pointer;text-align:center;transition:all .2s}
+.type-btn.selected-strom{border-color:var(--accent);background:rgba(61,142,248,0.15)}
+.type-btn.selected-wasser{border-color:var(--water);background:var(--water-bg)}
+.type-btn.selected-waerme{border-color:var(--heat);background:var(--heat-bg)}
+.type-btn i{font-size:24px;display:block;margin-bottom:6px}
+.type-btn span{font-size:12px;font-weight:600;color:var(--text2)}
+.type-btn.selected-strom span{color:var(--accent2)}
+.type-btn.selected-wasser span{color:var(--water)}
+.type-btn.selected-waerme span{color:var(--heat)}
+.badge{display:inline-block;padding:2px 8px;border-radius:100px;font-size:11px;font-weight:600;margin-left:4px;vertical-align:middle}
+.badge-wandler{background:var(--warning-bg);color:var(--warning-text)}
+.section-title{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+.delete-btn{background:var(--danger-bg);border:1px solid rgba(248,113,113,0.2);cursor:pointer;color:var(--danger);padding:7px;border-radius:8px;font-size:16px;display:flex;align-items:center}
+.tab-bar{display:flex;background:var(--surface);border-bottom:1px solid var(--border);padding:0 4px}
+.tab{flex:1;padding:12px 4px;border:none;background:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.active{color:var(--accent2);border-bottom-color:var(--accent)}
+.tab-content{display:none}.tab-content.active{display:block}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px}
+.stat-card .slabel{font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+.stat-card .sval{font-size:22px;font-weight:700}
+.stat-card .sunit{font-size:12px;color:var(--text3);margin-left:3px;font-weight:400}
+.reading-item{padding:12px 0;border-bottom:1px solid var(--border)}
+.reading-item:last-child{border-bottom:none}
+.reading-date{font-size:13px;color:var(--text2);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.reading-vals{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.reading-vals.single{grid-template-columns:1fr}
+.rval-box{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.rval-box .rlabel{font-size:10px;color:var(--text3);margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+.rval-box .rnum{font-size:15px;font-weight:600}
+.rval-box .rnum-x{font-size:12px;color:var(--accent2);margin-top:3px;font-weight:500}
+.rval-wandler{grid-column:1/-1;background:var(--warning-bg);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:10px 12px}
+.rval-wandler .rlabel{font-size:10px;color:var(--warning-text);margin-bottom:4px;font-weight:700;text-transform:uppercase}
+.rval-wandler .rnum{font-size:15px;font-weight:600;color:var(--warning-text)}
+.price-bar{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px}
+.price-bar .plabel{font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
+.price-inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.price-field label{font-size:11px;color:var(--text2);margin-bottom:5px;display:block;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+.price-field input{width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:var(--radius);font-size:15px;background:var(--surface2);color:var(--text)}
+.price-field input:focus{outline:none;border-color:var(--accent)}
+.saldo-box{border-radius:14px;padding:16px;margin-bottom:10px;border:1px solid}
+.saldo-box.positive{background:var(--success-bg);border-color:rgba(52,211,153,0.25)}
+.saldo-box.negative{background:var(--danger-bg);border-color:rgba(248,113,113,0.25)}
+.saldo-box.neutral{background:var(--surface2);border-color:var(--border2)}
+.saldo-label{font-size:11px;font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px}
+.saldo-label.positive{color:var(--success-text)}.saldo-label.negative{color:var(--danger)}.saldo-label.neutral{color:var(--text2)}
+.saldo-val{font-size:30px;font-weight:800;letter-spacing:-1px}
+.saldo-val.positive{color:var(--success-text)}.saldo-val.negative{color:var(--danger)}
+.cost-positive{color:var(--success-text)}.cost-negative{color:var(--danger)}
+.backup-option{display:flex;align-items:center;gap:14px;padding:16px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);margin-bottom:10px}
+.backup-option .bicon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.backup-option .btitle{font-size:15px;font-weight:600;margin-bottom:2px}
+.backup-option .bsub{font-size:12px;color:var(--text2)}
+/* Zählertyp Farben */
+.icon-building{background:linear-gradient(135deg,#1e3a6e,#2d5aa0);color:#7eb8ff}
+.icon-area{background:linear-gradient(135deg,#2d1e6e,#6a2da0);color:#c4b5fd}
+.icon-strom{background:linear-gradient(135deg,#1e3a6e,#2d5aa0);color:#7eb8ff}
+.icon-wasser{background:linear-gradient(135deg,#0a3a4a,#0e6b8a);color:var(--water)}
+.icon-waerme{background:linear-gradient(135deg,#4a1e0a,#8a3a0e);color:var(--heat)}
+/* Breadcrumb */
+.breadcrumb{padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);font-size:12px;color:var(--text3);display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.breadcrumb .bc-item{color:var(--text2)}
+.breadcrumb .bc-sep{opacity:0.4}
+.breadcrumb .bc-current{color:var(--text);font-weight:600}
+</style>
+</head>
+<body>
+
+<!-- S1: GEBÄUDE -->
+<div class="screen active" id="s-buildings">
+  <div class="topbar">
+    <h1>⚡ Zähler<span class="accent">App</span></h1>
+    <button class="btn-icon" onclick="openModal('modal-backup')" title="Backup"><i class="ti ti-database"></i></button>
+    <button class="btn-icon" onclick="openModal('modal-building')"><i class="ti ti-plus"></i></button>
+  </div>
+  <div class="content" id="buildings-list"></div>
+  <button class="fab" onclick="openModal('modal-building')"><i class="ti ti-plus"></i></button>
+</div>
+
+<!-- S2: BEREICHE eines Gebäudes -->
+<div class="screen" id="s-areas">
+  <div class="topbar">
+    <button class="back-btn" onclick="goTo('s-buildings')"><i class="ti ti-chevron-left"></i>Zurück</button>
+    <h1 id="areas-title">Bereiche</h1>
+    <button class="btn-icon" onclick="openModal('modal-area')"><i class="ti ti-plus"></i></button>
+  </div>
+  <div class="breadcrumb" id="bc-areas"></div>
+  <div class="content" id="areas-list"></div>
+  <button class="fab" onclick="openModal('modal-area')"><i class="ti ti-plus"></i></button>
+</div>
+
+<!-- S3: ZÄHLERTYPEN eines Bereichs -->
+<div class="screen" id="s-types">
+  <div class="topbar">
+    <button class="back-btn" onclick="goTo('s-areas')"><i class="ti ti-chevron-left"></i>Zurück</button>
+    <h1 id="types-title">Zählertypen</h1>
+  </div>
+  <div class="breadcrumb" id="bc-types"></div>
+  <div class="content" id="types-list"></div>
+</div>
+
+<!-- S4: ZÄHLER eines Typs -->
+<div class="screen" id="s-meters">
+  <div class="topbar">
+    <button class="back-btn" onclick="goTo('s-types')"><i class="ti ti-chevron-left"></i>Zurück</button>
+    <h1 id="meters-title">Zähler</h1>
+    <button class="btn-icon" onclick="openModal('modal-meter')"><i class="ti ti-plus"></i></button>
+  </div>
+  <div class="breadcrumb" id="bc-meters"></div>
+  <div class="content" id="meters-list"></div>
+  <button class="fab" onclick="openModal('modal-meter')"><i class="ti ti-plus"></i></button>
+</div>
+
+<!-- S5: ZÄHLER DETAIL -->
+<div class="screen" id="s-detail">
+  <div class="topbar">
+    <button class="back-btn" onclick="goTo('s-meters')"><i class="ti ti-chevron-left"></i>Zurück</button>
+    <h1 id="detail-title">Zähler</h1>
+    <button class="btn-icon" onclick="exportPDF()" title="PDF"><i class="ti ti-file-type-pdf"></i></button>
+    <button class="btn-icon" onclick="openModal('modal-reading')"><i class="ti ti-plus"></i></button>
+  </div>
+  <div class="breadcrumb" id="bc-detail"></div>
+  <div style="display:flex;flex-direction:column;flex:1">
+    <div class="tab-bar" id="detail-tabs"></div>
+    <div class="content">
+      <div class="tab-content active" id="tab-readings"></div>
+      <div class="tab-content" id="tab-stats"></div>
+      <div class="tab-content" id="tab-costs"></div>
+    </div>
+  </div>
+  <button class="fab" onclick="openModal('modal-reading')"><i class="ti ti-plus"></i></button>
+</div>
+
+<!-- MODAL: Gebäude -->
+<div class="modal-overlay" id="modal-building" onclick="closeModalOnOverlay(event,'modal-building')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Gebäude hinzufügen</h2>
+    <div class="field"><label>Name</label><input type="text" id="inp-b-name" placeholder="z.B. Hauptgebäude"></div>
+    <div class="field"><label>Adresse (optional)</label><input type="text" id="inp-b-addr" placeholder="z.B. Musterstraße 1"></div>
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="closeModal('modal-building')">Abbrechen</button>
+      <button class="btn-primary" onclick="saveBuilding()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Bereich -->
+<div class="modal-overlay" id="modal-area" onclick="closeModalOnOverlay(event,'modal-area')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Bereich hinzufügen</h2>
+    <div class="field"><label>Bezeichnung</label><input type="text" id="inp-a-name" placeholder="z.B. Erdgeschoss, Halle 1, Wohnung 3"></div>
+    <div class="field"><label>Beschreibung (optional)</label><input type="text" id="inp-a-desc" placeholder="z.B. Produktionshalle Nord"></div>
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="closeModal('modal-area')">Abbrechen</button>
+      <button class="btn-primary" onclick="saveArea()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Zähler -->
+<div class="modal-overlay" id="modal-meter" onclick="closeModalOnOverlay(event,'modal-meter')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2 id="modal-meter-title">Zähler hinzufügen</h2>
+    <div class="field"><label>Zählertyp</label>
+      <div class="type-grid">
+        <button class="type-btn selected-strom" id="tbtn-strom" onclick="selectType('strom')"><i class="ti ti-bolt" style="color:var(--accent2)"></i><span>Strom</span></button>
+        <button class="type-btn" id="tbtn-wasser" onclick="selectType('wasser')"><i class="ti ti-droplet" style="color:var(--water)"></i><span>Wasser</span></button>
+        <button class="type-btn" id="tbtn-waerme" onclick="selectType('waerme')"><i class="ti ti-flame" style="color:var(--heat)"></i><span>Wärme</span></button>
+      </div>
+    </div>
+    <div class="field"><label>Bezeichnung</label><input type="text" id="inp-m-name" placeholder="z.B. Hauptzähler"></div>
+    <div class="field"><label>Zählernummer (optional)</label><input type="text" id="inp-m-zid" placeholder="z.B. 1234567890"></div>
+    <div class="field-row">
+      <div class="field"><label>Einheit</label><input type="text" id="inp-m-unit" placeholder="z.B. kWh, m³, MWh"></div>
+      <div class="field"><label>Nachkommastellen</label><input type="number" id="inp-m-dec" value="4" min="0" max="6"></div>
+    </div>
+    <!-- Strom-spezifisch -->
+    <div id="strom-fields">
+      <div class="toggle-row">
+        <div class="toggle-label">Wandlerzähler<small>Messwert × Faktor</small></div>
+        <button class="toggle" id="toggle-wandler" onclick="toggleWandler()"></button>
+      </div>
+      <div id="wandler-factor-field" style="display:none" class="field">
+        <label>Wandlerfaktor</label>
+        <input type="number" id="inp-m-factor" value="50" min="1">
+      </div>
+      <div class="field"><label>Register 2 Bezeichnung</label><input type="text" id="inp-m-reg2" placeholder="z.B. 2.8.0 Einspeisung"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="closeModal('modal-meter')">Abbrechen</button>
+      <button class="btn-primary" onclick="saveMeter()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Ablesung -->
+<div class="modal-overlay" id="modal-reading" onclick="closeModalOnOverlay(event,'modal-reading')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Ablesung eintragen</h2>
+    <div class="field"><label>Datum</label><input type="date" id="inp-r-date"></div>
+    <div class="field"><label id="inp-r1-label">Zählerstand</label><input type="number" id="inp-r1" placeholder="0.0000" step="any"></div>
+    <div id="inp-r2-wrap" class="field" style="display:none"><label id="inp-r2-label">Register 2</label><input type="number" id="inp-r2" placeholder="0.0000" step="any"></div>
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="closeModal('modal-reading')">Abbrechen</button>
+      <button class="btn-primary" onclick="saveReading()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Backup -->
+<div class="modal-overlay" id="modal-backup" onclick="closeModalOnOverlay(event,'modal-backup')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Backup & Wiederherstellen</h2>
+    <div class="backup-option" onclick="exportData()" style="cursor:pointer">
+      <div class="bicon" style="background:linear-gradient(135deg,#1e3a6e,#2d5aa0);color:#7eb8ff"><i class="ti ti-download"></i></div>
+      <div><div class="btitle">Backup exportieren</div><div class="bsub">Alle Daten als JSON-Datei speichern</div></div>
+    </div>
+    <label class="backup-option" style="cursor:pointer">
+      <div class="bicon" style="background:linear-gradient(135deg,#1a3d2e,#1f6645);color:#34d399"><i class="ti ti-upload"></i></div>
+      <div><div class="btitle">Backup importieren</div><div class="bsub">Warnung: überschreibt alle Daten</div></div>
+      <input type="file" accept=".json" onchange="importData(event)" style="display:none">
+    </label>
+    <button class="btn-secondary" onclick="closeModal('modal-backup')" style="width:100%;margin-top:4px">Schließen</button>
+  </div>
+</div>
+
+<script>
+// ── DB ──────────────────────────────────────────────────────
+let DB = JSON.parse(localStorage.getItem('zaehler_db') || '{"buildings":[],"areas":[],"meters":[],"readings":[]}');
+// Migrate old data key
+if(!DB.areas) DB.areas=[];
+let cur = {building:null, area:null, type:null, meter:null};
+let wandlerOn = false, meterType = 'strom';
+
+function save(){localStorage.setItem('zaehler_db',JSON.stringify(DB));}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function fmt(n,dec){return Number(n).toLocaleString('de-DE',{minimumFractionDigits:dec,maximumFractionDigits:dec});}
+function fmtDate(d){return new Date(d).toLocaleDateString('de-DE',{day:'2-digit',month:'long',year:'numeric'});}
+function fmtDateShort(d){return new Date(d).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});}
+
+// ── NAVIGATION ───────────────────────────────────────────────
+function goTo(screen){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(screen).classList.add('active');
+  if(screen==='s-buildings') renderBuildings();
+  if(screen==='s-areas') renderAreas();
+  if(screen==='s-types') renderTypes();
+  if(screen==='s-meters') renderMeters();
+}
+
+// ── MODALS ───────────────────────────────────────────────────
+function openModal(id){
+  if(id==='modal-reading'){
+    document.getElementById('inp-r-date').value=new Date().toISOString().slice(0,10);
+    document.getElementById('inp-r1').value='';
+    document.getElementById('inp-r2').value='';
+    const m=cur.meter;
+    const dec=m.decimals||4;
+    document.getElementById('inp-r1-label').textContent = m.type==='strom' ? '1.8.0 Bezug ('+m.unit+')' : 'Zählerstand ('+m.unit+')';
+    const hasR2 = m.type==='strom' && m.reg2;
+    document.getElementById('inp-r2-wrap').style.display = hasR2?'block':'none';
+    if(hasR2) document.getElementById('inp-r2-label').textContent = m.reg2+' ('+m.unit+')';
+  }
+  if(id==='modal-meter'){
+    document.getElementById('inp-m-name').value='';
+    document.getElementById('inp-m-zid').value='';
+    document.getElementById('inp-m-reg2').value='2.8.0 Einspeisung';
+    wandlerOn=false;
+    document.getElementById('toggle-wandler').classList.remove('on');
+    document.getElementById('wandler-factor-field').style.display='none';
+    document.getElementById('inp-m-factor').value='50';
+    selectType(cur.type||'strom');
+    const unitDefaults={strom:'kWh',wasser:'m³',waerme:'MWh'};
+    document.getElementById('inp-m-unit').value=unitDefaults[cur.type]||'kWh';
+    document.getElementById('inp-m-dec').value='4';
+  }
+  if(id==='modal-building'){document.getElementById('inp-b-name').value='';document.getElementById('inp-b-addr').value='';}
+  if(id==='modal-area'){document.getElementById('inp-a-name').value='';document.getElementById('inp-a-desc').value='';}
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function closeModalOnOverlay(e,id){if(e.target.classList.contains('modal-overlay'))closeModal(id);}
+
+function selectType(type){
+  meterType=type;
+  ['strom','wasser','waerme'].forEach(t=>{
+    const btn=document.getElementById('tbtn-'+t);
+    btn.className='type-btn'+(type===t?' selected-'+t:'');
+  });
+  document.getElementById('strom-fields').style.display=type==='strom'?'block':'none';
+}
+function toggleWandler(){
+  wandlerOn=!wandlerOn;
+  document.getElementById('toggle-wandler').classList.toggle('on',wandlerOn);
+  document.getElementById('wandler-factor-field').style.display=wandlerOn?'block':'none';
+}
+
+// ── SAVE ─────────────────────────────────────────────────────
+function saveBuilding(){
+  const name=document.getElementById('inp-b-name').value.trim();
+  if(!name)return alert('Bitte einen Namen eingeben.');
+  DB.buildings.push({id:uid(),name,addr:document.getElementById('inp-b-addr').value.trim()});
+  save();closeModal('modal-building');renderBuildings();
+}
+function saveArea(){
+  const name=document.getElementById('inp-a-name').value.trim();
+  if(!name)return alert('Bitte eine Bezeichnung eingeben.');
+  DB.areas.push({id:uid(),bId:cur.building.id,name,desc:document.getElementById('inp-a-desc').value.trim()});
+  save();closeModal('modal-area');renderAreas();
+}
+function saveMeter(){
+  const name=document.getElementById('inp-m-name').value.trim();
+  if(!name)return alert('Bitte eine Bezeichnung eingeben.');
+  const factor=parseInt(document.getElementById('inp-m-factor').value)||50;
+  DB.meters.push({
+    id:uid(), aId:cur.area.id, bId:cur.building.id,
+    type:meterType, name,
+    zid:document.getElementById('inp-m-zid').value.trim(),
+    unit:document.getElementById('inp-m-unit').value.trim()||'kWh',
+    decimals:parseInt(document.getElementById('inp-m-dec').value)||4,
+    wandler:meterType==='strom'?wandlerOn:false,
+    factor:meterType==='strom'&&wandlerOn?factor:1,
+    reg2:meterType==='strom'?document.getElementById('inp-m-reg2').value.trim():null
+  });
+  save();closeModal('modal-meter');renderMeters();
+}
+function saveReading(){
+  const date=document.getElementById('inp-r-date').value;
+  const r1=parseFloat(document.getElementById('inp-r1').value);
+  if(!date||isNaN(r1))return alert('Bitte alle Felder ausfüllen.');
+  const r2val=document.getElementById('inp-r2').value;
+  const r2=cur.meter.reg2&&r2val!==''?parseFloat(r2val):null;
+  DB.readings.push({id:uid(),mId:cur.meter.id,date,r1,r2});
+  DB.readings.sort((a,b)=>a.date.localeCompare(b.date));
+  save();closeModal('modal-reading');renderReadings();
+}
+
+// ── RENDER ───────────────────────────────────────────────────
+function typeInfo(type){
+  const map={
+    strom:{icon:'ti-bolt',label:'Strom',cls:'icon-strom'},
+    wasser:{icon:'ti-droplet',label:'Wasser',cls:'icon-wasser'},
+    waerme:{icon:'ti-flame',label:'Wärme',cls:'icon-waerme'}
+  };
+  return map[type]||map.strom;
+}
+
+function renderBuildings(){
+  const el=document.getElementById('buildings-list');
+  if(!DB.buildings.length){el.innerHTML='<div class="empty"><i class="ti ti-building-off"></i><p>Noch keine Gebäude vorhanden.<br>Tippe auf + um ein Gebäude hinzuzufügen.</p></div>';return;}
+  el.innerHTML='<div class="section-title">Gebäude</div><div class="card">'+
+    DB.buildings.map(b=>{
+      const ac=DB.areas.filter(a=>a.bId===b.id).length;
+      return`<div class="card-row" onclick="openBuilding('${b.id}')">
+        <div class="icon-wrap icon-building"><i class="ti ti-building"></i></div>
+        <div class="row-info"><div class="row-title">${b.name}</div><div class="row-sub">${b.addr||'Keine Adresse'} · ${ac} Bereiche</div></div>
+        <i class="ti ti-chevron-right chevron"></i></div>`;
+    }).join('')+'</div>';
+}
+
+function openBuilding(id){
+  cur.building=DB.buildings.find(b=>b.id===id);
+  goTo('s-areas');
+}
+
+function renderAreas(){
+  document.getElementById('areas-title').textContent=cur.building.name;
+  document.getElementById('bc-areas').innerHTML=`<span class="bc-item">${cur.building.name}</span>`;
+  const el=document.getElementById('areas-list');
+  const areas=DB.areas.filter(a=>a.bId===cur.building.id);
+  if(!areas.length){el.innerHTML='<div class="empty"><i class="ti ti-layout-grid-remove"></i><p>Noch keine Bereiche vorhanden.<br>Tippe auf + um einen Bereich hinzuzufügen.<br><br><small>Beispiele: Erdgeschoss, Halle 1, Wohnung 3</small></p></div>';return;}
+  el.innerHTML='<div class="section-title">Bereiche</div><div class="card">'+
+    areas.map(a=>{
+      const mc=DB.meters.filter(m=>m.aId===a.id).length;
+      return`<div class="card-row" onclick="openArea('${a.id}')">
+        <div class="icon-wrap icon-area"><i class="ti ti-layout-grid"></i></div>
+        <div class="row-info"><div class="row-title">${a.name}</div><div class="row-sub">${a.desc||''} · ${mc} Zähler</div></div>
+        <i class="ti ti-chevron-right chevron"></i></div>`;
+    }).join('')+'</div>';
+}
+
+function openArea(id){
+  cur.area=DB.areas.find(a=>a.id===id);
+  goTo('s-types');
+}
+
+function renderTypes(){
+  document.getElementById('types-title').textContent=cur.area.name;
+  document.getElementById('bc-types').innerHTML=
+    `<span class="bc-item">${cur.building.name}</span><span class="bc-sep"> › </span><span class="bc-current">${cur.area.name}</span>`;
+  const el=document.getElementById('types-list');
+  const types=['strom','wasser','waerme'];
+  el.innerHTML='<div class="section-title">Zählertyp wählen</div><div class="card">'+
+    types.map(type=>{
+      const info=typeInfo(type);
+      const mc=DB.meters.filter(m=>m.aId===cur.area.id&&m.type===type).length;
+      const rc=DB.readings.filter(r=>DB.meters.filter(m=>m.aId===cur.area.id&&m.type===type).some(m=>m.id===r.mId)).length;
+      return`<div class="card-row" onclick="openType('${type}')">
+        <div class="icon-wrap ${info.cls}"><i class="ti ${info.icon}"></i></div>
+        <div class="row-info"><div class="row-title">${info.label}zähler</div><div class="row-sub">${mc} Zähler · ${rc} Ablesungen</div></div>
+        <i class="ti ti-chevron-right chevron"></i></div>`;
+    }).join('')+'</div>';
+}
+
+function openType(type){
+  cur.type=type;
+  goTo('s-meters');
+}
+
+function renderMeters(){
+  const info=typeInfo(cur.type);
+  document.getElementById('meters-title').textContent=info.label+'zähler';
+  document.getElementById('bc-meters').innerHTML=
+    `<span class="bc-item">${cur.building.name}</span><span class="bc-sep"> › </span>
+     <span class="bc-item">${cur.area.name}</span><span class="bc-sep"> › </span>
+     <span class="bc-current">${info.label}</span>`;
+  const el=document.getElementById('meters-list');
+  const meters=DB.meters.filter(m=>m.aId===cur.area.id&&m.type===cur.type);
+  if(!meters.length){el.innerHTML=`<div class="empty"><i class="ti ${info.icon}"></i><p>Noch keine ${info.label}zähler vorhanden.<br>Tippe auf + um einen Zähler hinzuzufügen.</p></div>`;return;}
+  el.innerHTML='<div class="section-title">Zähler</div><div class="card">'+
+    meters.map(m=>{
+      const rc=DB.readings.filter(r=>r.mId===m.id).length;
+      const wb=m.wandler?`<span class="badge badge-wandler">×${m.factor}</span>`:'';
+      return`<div class="card-row" onclick="openMeter('${m.id}')">
+        <div class="icon-wrap ${info.cls}"><i class="ti ${info.icon}"></i></div>
+        <div class="row-info"><div class="row-title">${m.name}${wb}</div>
+        <div class="row-sub">${m.zid?'Nr. '+m.zid+' · ':''}${m.unit} · ${rc} Ablesungen</div></div>
+        <i class="ti ti-chevron-right chevron"></i></div>`;
+    }).join('')+'</div>';
+}
+
+function openMeter(id){
+  cur.meter=DB.meters.find(m=>m.id===id);
+  const info=typeInfo(cur.meter.type);
+  document.getElementById('detail-title').textContent=cur.meter.name;
+  document.getElementById('bc-detail').innerHTML=
+    `<span class="bc-item">${cur.building.name}</span><span class="bc-sep"> › </span>
+     <span class="bc-item">${cur.area.name}</span><span class="bc-sep"> › </span>
+     <span class="bc-item">${info.label}</span><span class="bc-sep"> › </span>
+     <span class="bc-current">${cur.meter.name}</span>`;
+  // Build tabs – costs only for strom
+  const hasCosts = cur.meter.type==='strom';
+  document.getElementById('detail-tabs').innerHTML=
+    `<button class="tab active" onclick="switchTab('readings')">Ablesungen</button>
+     <button class="tab" onclick="switchTab('stats')">Statistik</button>`+
+    (hasCosts?`<button class="tab" onclick="switchTab('costs')">Kosten</button>`:'');
+  document.querySelectorAll('.tab-content').forEach(el=>{el.classList.remove('active');el.innerHTML='';});
+  document.getElementById('tab-readings').classList.add('active');
+  goTo('s-detail');
+  renderReadings();
+}
+
+function switchTab(tab){
+  document.querySelectorAll('#detail-tabs .tab').forEach((el,i)=>el.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
+  const tabs=['readings','stats','costs'];
+  const idx=tabs.indexOf(tab);
+  document.querySelectorAll('#detail-tabs .tab')[idx].classList.add('active');
+  document.getElementById('tab-'+tab).classList.add('active');
+  if(tab==='readings')renderReadings();
+  else if(tab==='stats')renderStats();
+  else renderCosts();
+}
+
+function renderReadings(){
+  const el=document.getElementById('tab-readings');
+  const m=cur.meter;
+  const readings=DB.readings.filter(r=>r.mId===m.id).slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const dec=m.decimals||4;
+  const f=m.wandler?m.factor:1;
+  if(!readings.length){el.innerHTML='<div class="empty"><i class="ti ti-notes-off"></i><p>Keine Ablesungen vorhanden.</p></div>';return;}
+  el.innerHTML=readings.map(r=>{
+    const hasR2=m.reg2&&r.r2!==null&&r.r2!==undefined;
+    return`<div class="reading-item">
+      <div class="reading-date">
+        <span><i class="ti ti-calendar" style="font-size:13px;margin-right:4px"></i>${fmtDate(r.date)}</span>
+        <button class="delete-btn" onclick="deleteReading('${r.id}')"><i class="ti ti-trash"></i></button>
+      </div>
+      <div class="reading-vals${hasR2?'':' single'}">
+        <div class="rval-box">
+          <div class="rlabel">${m.type==='strom'?'1.8.0 Bezug':m.type==='wasser'?'Zählerstand':'Zählerstand'}</div>
+          <div class="rnum">${fmt(r.r1,dec)} ${m.unit}</div>
+          ${m.wandler?`<div class="rnum-x">→ ${fmt(r.r1*f,dec)} ${m.unit}</div>`:''}
+        </div>
+        ${hasR2?`<div class="rval-box">
+          <div class="rlabel">${m.reg2||'Register 2'}</div>
+          <div class="rnum">${fmt(r.r2,dec)} ${m.unit}</div>
+          ${m.wandler?`<div class="rnum-x">→ ${fmt(r.r2*f,dec)} ${m.unit}</div>`:''}
+        </div>`:''}
+        ${m.wandler?`<div class="rval-wandler">
+          <div class="rlabel">Hochgerechnet ×${f}</div>
+          <div class="rnum">${fmt(r.r1*f,dec)}${hasR2?' / '+fmt(r.r2*f,dec):''} ${m.unit}</div>
+        </div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function deleteReading(id){
+  if(!confirm('Ablesung löschen?'))return;
+  DB.readings=DB.readings.filter(r=>r.id!==id);
+  save();renderReadings();
+}
+
+function calcPeriods(){
+  const m=cur.meter;
+  const readings=DB.readings.filter(r=>r.mId===m.id).slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const f=m.wandler?m.factor:1;
+  const dec=m.decimals||4;
+  let rows=[],total1=0,total2=0,totalDays=0;
+  for(let i=1;i<readings.length;i++){
+    const p=readings[i-1],c=readings[i];
+    const days=(new Date(c.date)-new Date(p.date))/(864e5);
+    if(days<=0)continue;
+    const d1=(c.r1-p.r1)*f;
+    const d2=m.reg2&&c.r2!==null&&p.r2!==null?(c.r2-p.r2)*f:null;
+    total1+=d1;if(d2!==null)total2+=d2;totalDays+=days;
+    rows.push({label:new Date(c.date).toLocaleDateString('de-DE',{month:'short',year:'2-digit'}),
+      von:fmtDateShort(p.date),bis:fmtDateShort(c.date),
+      days:Math.round(days),d1,d2,pd1:d1/days,pd2:d2!==null?d2/days:null});
+  }
+  return{rows,total1,total2,totalDays};
+}
+
+function renderStats(){
+  const el=document.getElementById('tab-stats');
+  const m=cur.meter;
+  const {rows,total1,total2,totalDays}=calcPeriods();
+  if(!rows.length){el.innerHTML='<div class="empty"><i class="ti ti-chart-bar-off"></i><p>Mindestens 2 Ablesungen nötig.</p></div>';return;}
+  // Durchschnitt nur aus letzter Periode
+  const lastRow=rows[rows.length-1];
+  const avgD1=lastRow.pd1, avgD2=lastRow.pd2!==null?lastRow.pd2:null;
+  el.innerHTML=`<div class="section-title">Durchschnitt letzte Periode (${lastRow.days} Tage)</div>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="slabel">Ø Tag${m.reg2?' · R1':''}</div><div class="sval">${avgD1.toFixed(2)}<span class="sunit">${m.unit}</span></div></div>
+    <div class="stat-card"><div class="slabel">Ø Monat${m.reg2?' · R1':''}</div><div class="sval">${(avgD1*30.44).toFixed(0)}<span class="sunit">${m.unit}</span></div></div>
+    ${avgD2!==null?`<div class="stat-card"><div class="slabel">Ø Tag · R2</div><div class="sval">${avgD2.toFixed(2)}<span class="sunit">${m.unit}</span></div></div>
+    <div class="stat-card"><div class="slabel">Ø Monat · R2</div><div class="sval">${(avgD2*30.44).toFixed(0)}<span class="sunit">${m.unit}</span></div></div>`:''}
+  </div>
+  <div class="section-title" style="margin-top:16px">Verbrauch je Periode</div>
+  <div class="card">${rows.map(r=>`<div class="reading-item">
+    <div class="reading-date"><span style="font-weight:600;color:var(--text)">${r.label} · ${r.days} Tage</span></div>
+    <div class="reading-vals${r.d2===null?' single':''}">
+      <div class="rval-box"><div class="rlabel">${m.reg2?'Bezug R1':'Verbrauch'}</div>
+        <div class="rnum">${r.d1.toFixed(2)} ${m.unit}</div>
+        <div class="rnum-x">${r.pd1.toFixed(3)} ${m.unit}/Tag</div></div>
+      ${r.d2!==null?`<div class="rval-box"><div class="rlabel">${m.reg2||'Register 2'}</div>
+        <div class="rnum">${r.d2.toFixed(2)} ${m.unit}</div>
+        <div class="rnum-x">${r.pd2.toFixed(3)} ${m.unit}/Tag</div></div>`:''}
+    </div></div>`).join('')}</div>`;
+}
+
+function getMeterPrices(mId){try{return JSON.parse(localStorage.getItem('prices_'+mId))||{buy:0,sell:0};}catch(e){return{buy:0,sell:0};}}
+function savePrices(mId,buy,sell){localStorage.setItem('prices_'+mId,JSON.stringify({buy:parseFloat(buy)||0,sell:parseFloat(sell)||0}));}
+
+function renderCosts(){
+  const el=document.getElementById('tab-costs');
+  const m=cur.meter;
+  const prices=getMeterPrices(m.id);
+  const {rows,total1,total2,totalDays}=calcPeriods();
+  const unit=m.unit;
+
+  let html=`<div class="price-bar">
+    <div class="plabel"><i class="ti ti-currency-euro" style="font-size:13px;margin-right:4px"></i>Preise</div>
+    <div class="price-inputs">
+      <div class="price-field"><label>Strompreis (ct/${unit})</label>
+        <input type="number" id="inp-buy" value="${prices.buy}" step="0.01" placeholder="z.B. 32.50"
+          onchange="savePrices('${m.id}',this.value,document.getElementById('inp-sell').value);renderCosts()"></div>
+      <div class="price-field"><label>Einspeiseverg. (ct/${unit})</label>
+        <input type="number" id="inp-sell" value="${prices.sell}" step="0.01" placeholder="z.B. 8.20"
+          onchange="savePrices('${m.id}',document.getElementById('inp-buy').value,this.value);renderCosts()"></div>
+    </div>
+  </div>`;
+
+  if(!rows.length){el.innerHTML=html+'<div class="empty" style="padding:30px 20px"><i class="ti ti-chart-pie-off"></i><p>Mindestens 2 Ablesungen nötig.</p></div>';return;}
+
+  let totalKosten=0,totalErtrag=0;
+  const costRows=rows.map(r=>{
+    const kosten=r.d1*(prices.buy/100);
+    const ertrag=r.d2!==null?r.d2*(prices.sell/100):0;
+    const saldo=ertrag-kosten;
+    totalKosten+=kosten;totalErtrag+=ertrag;
+    return{...r,kosten,ertrag,saldo};
+  });
+  const totalSaldo=totalErtrag-totalKosten;
+  const sc=totalSaldo>0?'positive':totalSaldo<0?'negative':'neutral';
+
+  html+=`<div class="saldo-box ${sc}">
+    <div class="saldo-label ${sc}">${totalSaldo>=0?'Gesamtertrag':'Gesamtkosten'}</div>
+    <div class="saldo-val ${sc}">${totalSaldo>=0?'+':''}${totalSaldo.toFixed(2)} €</div>
+    <div style="font-size:12px;margin-top:4px;opacity:0.8">Kosten: ${totalKosten.toFixed(2)} € · Ertrag: ${totalErtrag.toFixed(2)} €</div>
+  </div>
+  <div class="section-title">Aufstellung je Periode</div>
+  <div class="card">${costRows.map(r=>{
+    const sc2=r.saldo>0?'cost-positive':r.saldo<0?'cost-negative':'';
+    return`<div class="reading-item">
+      <div class="reading-date"><span style="font-weight:600;color:var(--text)">${r.label} · ${r.days} Tage</span>
+        <span class="${sc2}" style="font-weight:700;font-size:15px">${r.saldo>=0?'+':''}${r.saldo.toFixed(2)} €</span></div>
+      <div class="reading-vals${r.d2===null?' single':''}">
+        <div class="rval-box"><div class="rlabel">Bezug</div><div class="rnum">${r.d1.toFixed(2)} ${unit}</div>
+          <div class="rnum-x cost-negative">−${r.kosten.toFixed(2)} €</div></div>
+        ${r.d2!==null?`<div class="rval-box"><div class="rlabel">${m.reg2||'Einspeisung'}</div>
+          <div class="rnum">${r.d2.toFixed(2)} ${unit}</div>
+          <div class="rnum-x cost-positive">+${r.ertrag.toFixed(2)} €</div></div>`:''}
+      </div></div>`;
+  }).join('')}</div>`;
+  el.innerHTML=html;
+}
+
+// ── BACKUP ───────────────────────────────────────────────────
+function exportData(){
+  const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='zaehler-backup-'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+function importData(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(!data.buildings||!data.meters||!data.readings)throw new Error('Ungültiges Format');
+      if(!confirm('Alle Daten überschreiben?'))return;
+      DB=data;if(!DB.areas)DB.areas=[];
+      save();closeModal('modal-backup');renderBuildings();
+      alert('Import OK: '+data.buildings.length+' Gebäude, '+(data.areas||[]).length+' Bereiche, '+data.meters.length+' Zähler.');
+    }catch(err){alert('Fehler: '+err.message);}
+  };
+  reader.readAsText(file);
+}
+
+// ── PDF ──────────────────────────────────────────────────────
+function exportPDF(){
+  if(typeof window.jspdf==='undefined'){alert('PDF lädt noch, kurz warten.');return;}
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const m=cur.meter;
+  const readings=DB.readings.filter(r=>r.mId===m.id).slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const {rows,total1,total2,totalDays}=calcPeriods();
+  const prices=getMeterPrices(m.id);
+  const f=m.wandler?m.factor:1;
+  const dec=m.decimals||4;
+  const info=typeInfo(m.type);
+  const pageW=210,margin=14,colW=pageW-margin*2;
+  let y=14;
+
+  const colors={strom:[26,115,232],wasser:[8,145,178],waerme:[194,65,12]};
+  const [cr,cg,cb]=colors[m.type]||colors.strom;
+
+  doc.setFillColor(cr,cg,cb);
+  doc.rect(0,0,pageW,30,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(18);doc.setFont('helvetica','bold');
+  doc.text(info.label+'zähler Auswertung', margin, 13);
+  doc.setFontSize(10);doc.setFont('helvetica','normal');
+  doc.text('Erstellt: '+fmtDate(new Date().toISOString().slice(0,10)), margin, 21);
+  doc.text(cur.building.name+' › '+cur.area.name+' › '+m.name, margin, 27);
+  y=38;
+
+  doc.setFillColor(245,247,255);doc.roundedRect(margin,y,colW,24,3,3,'F');
+  doc.setTextColor(30,30,50);doc.setFontSize(13);doc.setFont('helvetica','bold');
+  doc.text(m.name,margin+6,y+8);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(100,110,140);
+  const infos=[m.zid?'Nr. '+m.zid:'',m.wandler?'Wandlerzähler ×'+m.factor:'Direktmessung','Einheit: '+m.unit].filter(Boolean);
+  doc.text(infos.join('  |  '),margin+6,y+16);
+  y+=30;
+
+  if(rows.length<1){
+    doc.setTextColor(180,0,0);doc.text('Keine Verbrauchsdaten vorhanden.',margin,y+10);
+    doc.save(m.name+'.pdf');return;
+  }
+
+  const avgD1=total1/totalDays;
+  doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(30,30,50);
+  doc.text('ZUSAMMENFASSUNG',margin,y+6);y+=10;
+  const cds=[
+    {l:'Gesamt',v:total1.toFixed(2)+' '+m.unit},
+    {l:'Ø pro Tag',v:avgD1.toFixed(3)+' '+m.unit},
+    {l:'Ø pro Monat',v:(avgD1*30.44).toFixed(2)+' '+m.unit},
+    {l:'Zeitraum',v:rows.length+' Perioden'},
+  ];
+  const cw2=colW/2-3;
+  cds.forEach((c,i)=>{
+    const cx=margin+(i%2)*(cw2+6),cy=y+Math.floor(i/2)*18;
+    doc.setFillColor(240,244,255);doc.roundedRect(cx,cy,cw2,14,2,2,'F');
+    doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(100,110,140);doc.text(c.l,cx+4,cy+5.5);
+    doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(cr,cg,cb);doc.text(c.v,cx+4,cy+11.5);
+  });
+  y+=40;
+
+  doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(30,30,50);
+  doc.text('VERBRAUCH JE PERIODE',margin,y+6);y+=10;
+  doc.setFillColor(cr,cg,cb);doc.rect(margin,y,colW,8,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont('helvetica','bold');
+  const hasr2=m.reg2&&rows.some(r=>r.d2!==null);
+  const hcols=hasr2?['Zeitraum','Tage','R1 '+m.unit,'R2 '+m.unit,'Ø Tag R1']:['Zeitraum','Tage','Verbrauch '+m.unit,'Ø pro Tag'];
+  const hws=hasr2?[50,14,32,32,34]:[60,16,60,46];
+  let cx2=margin+2;
+  hcols.forEach((h,i)=>{doc.text(h,cx2,y+5.5);cx2+=hws[i];});
+  y+=8;
+  rows.forEach((r,idx)=>{
+    if(y>270){doc.addPage();y=14;}
+    doc.setFillColor(idx%2===0?248:255,idx%2===0?249:255,idx%2===0?252:255);
+    doc.rect(margin,y,colW,8,'F');
+    doc.setTextColor(40,40,60);doc.setFont('helvetica','normal');doc.setFontSize(8);
+    cx2=margin+2;
+    const rd=hasr2?[r.von+'–'+r.bis,String(r.days),r.d1.toFixed(2),r.d2!==null?r.d2.toFixed(2):'–',r.pd1.toFixed(3)]:
+      [r.von+'–'+r.bis,String(r.days),r.d1.toFixed(2),r.pd1.toFixed(3)];
+    rd.forEach((v,i)=>{doc.text(v,cx2,y+5.5);cx2+=hws[i];});
+    y+=8;
+  });
+  y+=6;
+
+  if(y>250){doc.addPage();y=14;}
+  doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(30,30,50);
+  doc.text('ALLE ABLESUNGEN',margin,y+6);y+=10;
+  doc.setFillColor(cr,cg,cb);doc.rect(margin,y,colW,8,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont('helvetica','bold');
+  const acols=m.wandler?(hasr2?['Datum','R1 abgelesen','R1 ×'+m.factor,'R2 abgelesen','R2 ×'+m.factor]:['Datum','Abgelesen','×'+m.factor])
+    :(hasr2?['Datum','R1','R2']:['Datum','Zählerstand']);
+  const aws=m.wandler?(hasr2?[34,34,34,34,46]:[60,60,62]):(hasr2?[50,72,60]:[70,112]);
+  cx2=margin+2;
+  acols.forEach((h,i)=>{doc.text(h,cx2,y+5.5);cx2+=aws[i];});
+  y+=8;
+  readings.slice().reverse().forEach((r,idx)=>{
+    if(y>270){doc.addPage();y=14;}
+    doc.setFillColor(idx%2===0?248:255,idx%2===0?249:255,idx%2===0?252:255);
+    doc.rect(margin,y,colW,8,'F');
+    doc.setTextColor(40,40,60);doc.setFont('helvetica','normal');doc.setFontSize(8);
+    cx2=margin+2;
+    const ds=fmtDateShort(r.date);
+    const ad=m.wandler?(hasr2?[ds,r.r1.toFixed(dec),(r.r1*m.factor).toFixed(dec),r.r2!==null?r.r2.toFixed(dec):'–',r.r2!==null?(r.r2*m.factor).toFixed(dec):'–']
+      :[ds,r.r1.toFixed(dec),(r.r1*m.factor).toFixed(dec)])
+      :(hasr2?[ds,r.r1.toFixed(dec),r.r2!==null?r.r2.toFixed(dec):'–']:[ds,r.r1.toFixed(dec)]);
+    ad.forEach((v,i)=>{doc.text(v,cx2,y+5.5);cx2+=aws[i];});
+    y+=8;
+  });
+
+  doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(160,160,180);
+  doc.text('Erstellt mit ZählerApp',margin,292);
+  doc.save('Zaehler-'+m.name.replace(/[^a-zA-Z0-9]/g,'-')+'-'+new Date().toISOString().slice(0,10)+'.pdf');
+}
+
+renderBuildings();
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js');});
+}
+</script>
+</body>
+</html>
