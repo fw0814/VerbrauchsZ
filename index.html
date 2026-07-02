@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -9,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Zähler-App">
 <title>Zähler-App</title>
-<link rel="manifest" href="/manifest.json">
+<link rel="manifest" href="/VerbrauchsZ/manifest.webmanifest">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
@@ -821,7 +820,7 @@ renderBuildings();
 </script>
 <script>
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js');});
+  window.addEventListener('load',()=>{navigator.serviceWorker.register('/VerbrauchsZ/sw.js');});
 }
 </script>
 </body>
