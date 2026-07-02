@@ -78,6 +78,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .badge{display:inline-block;padding:2px 8px;border-radius:100px;font-size:11px;font-weight:600;margin-left:4px;vertical-align:middle}
 .badge-wandler{background:var(--warning-bg);color:var(--warning-text)}
 .section-title{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+
+.row-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.btn-edit{background:none;border:none;cursor:pointer;color:var(--text3);padding:7px;border-radius:8px;font-size:16px;display:flex;align-items:center}
+.btn-edit:hover{background:var(--surface2);color:var(--text)}
+.btn-del{background:none;border:none;cursor:pointer;color:var(--text3);padding:7px;border-radius:8px;font-size:16px;display:flex;align-items:center}
+.btn-del:hover{background:var(--danger-bg);color:var(--danger)}
 .delete-btn{background:var(--danger-bg);border:1px solid rgba(248,113,113,0.2);cursor:pointer;color:var(--danger);padding:7px;border-radius:8px;font-size:16px;display:flex;align-items:center}
 .tab-bar{display:flex;background:var(--surface);border-bottom:1px solid var(--border);padding:0 4px}
 .tab{flex:1;padding:12px 4px;border:none;background:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px}
@@ -279,6 +285,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
+
+<!-- MODAL: Ablesung bearbeiten -->
+<div class="modal-overlay" id="modal-edit-reading" onclick="closeModalOnOverlay(event,'modal-edit-reading')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Ablesung bearbeiten</h2>
+    <div class="field"><label>Datum</label><input type="date" id="inp-er-date"></div>
+    <div class="field"><label id="inp-er1-label">Zählerstand</label><input type="number" id="inp-er1" step="any"></div>
+    <div id="inp-er2-wrap" class="field" style="display:none"><label id="inp-er2-label">Register 2</label><input type="number" id="inp-er2" step="any"></div>
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="closeModal('modal-edit-reading')">Abbrechen</button>
+      <button class="btn-primary" onclick="saveEditReading()">Speichern</button>
+    </div>
+  </div>
+</div>
 <!-- MODAL: Backup -->
 <div class="modal-overlay" id="modal-backup" onclick="closeModalOnOverlay(event,'modal-backup')">
   <div class="modal">
@@ -347,7 +368,7 @@ function openModal(id){
     document.getElementById('inp-m-unit').value=unitDefaults[cur.type]||'kWh';
     document.getElementById('inp-m-dec').value='4';
   }
-  if(id==='modal-building'){document.getElementById('inp-b-name').value='';document.getElementById('inp-b-addr').value='';}
+  if(id==='modal-building'){document.getElementById('inp-b-name').value='';document.getElementById('inp-b-addr').value='';if(!editId)document.querySelector('#modal-building h2').textContent='Gebäude hinzufügen';}
   if(id==='modal-area'){document.getElementById('inp-a-name').value='';document.getElementById('inp-a-desc').value='';}
   document.getElementById(id).classList.add('open');
 }
@@ -372,30 +393,59 @@ function toggleWandler(){
 function saveBuilding(){
   const name=document.getElementById('inp-b-name').value.trim();
   if(!name)return alert('Bitte einen Namen eingeben.');
-  DB.buildings.push({id:uid(),name,addr:document.getElementById('inp-b-addr').value.trim()});
-  save();closeModal('modal-building');renderBuildings();
+  if(editId){
+    const b=DB.buildings.find(x=>x.id===editId);
+    b.name=name;b.addr=document.getElementById('inp-b-addr').value.trim();
+    editId=null;
+  } else {
+    DB.buildings.push({id:uid(),name,addr:document.getElementById('inp-b-addr').value.trim()});
+  }
+  save();closeModal('modal-building');
+  document.querySelector('#modal-building h2').textContent='Gebäude hinzufügen';
+  renderBuildings();
 }
 function saveArea(){
   const name=document.getElementById('inp-a-name').value.trim();
   if(!name)return alert('Bitte eine Bezeichnung eingeben.');
-  DB.areas.push({id:uid(),bId:cur.building.id,name,desc:document.getElementById('inp-a-desc').value.trim()});
-  save();closeModal('modal-area');renderAreas();
+  if(editId){
+    const a=DB.areas.find(x=>x.id===editId);
+    a.name=name;a.desc=document.getElementById('inp-a-desc').value.trim();
+    editId=null;
+  } else {
+    DB.areas.push({id:uid(),bId:cur.building.id,name,desc:document.getElementById('inp-a-desc').value.trim()});
+  }
+  save();closeModal('modal-area');
+  document.querySelector('#modal-area h2').textContent='Bereich hinzufügen';
+  renderAreas();
 }
 function saveMeter(){
   const name=document.getElementById('inp-m-name').value.trim();
   if(!name)return alert('Bitte eine Bezeichnung eingeben.');
   const factor=parseInt(document.getElementById('inp-m-factor').value)||50;
-  DB.meters.push({
-    id:uid(), aId:cur.area.id, bId:cur.building.id,
-    type:meterType, name,
-    zid:document.getElementById('inp-m-zid').value.trim(),
-    unit:document.getElementById('inp-m-unit').value.trim()||'kWh',
-    decimals:parseInt(document.getElementById('inp-m-dec').value)||4,
-    wandler:meterType==='strom'?wandlerOn:false,
-    factor:meterType==='strom'&&wandlerOn?factor:1,
-    reg2:meterType==='strom'?document.getElementById('inp-m-reg2').value.trim():null
-  });
-  save();closeModal('modal-meter');renderMeters();
+  if(editId){
+    const m=DB.meters.find(x=>x.id===editId);
+    m.name=name;m.zid=document.getElementById('inp-m-zid').value.trim();
+    m.unit=document.getElementById('inp-m-unit').value.trim()||'kWh';
+    m.decimals=parseInt(document.getElementById('inp-m-dec').value)||4;
+    m.wandler=meterType==='strom'?wandlerOn:false;
+    m.factor=meterType==='strom'&&wandlerOn?factor:1;
+    m.reg2=meterType==='strom'?document.getElementById('inp-m-reg2').value.trim():null;
+    editId=null;
+  } else {
+    DB.meters.push({
+      id:uid(), aId:cur.area.id, bId:cur.building.id,
+      type:meterType, name,
+      zid:document.getElementById('inp-m-zid').value.trim(),
+      unit:document.getElementById('inp-m-unit').value.trim()||'kWh',
+      decimals:parseInt(document.getElementById('inp-m-dec').value)||4,
+      wandler:meterType==='strom'?wandlerOn:false,
+      factor:meterType==='strom'&&wandlerOn?factor:1,
+      reg2:meterType==='strom'?document.getElementById('inp-m-reg2').value.trim():null
+    });
+  }
+  save();closeModal('modal-meter');
+  document.querySelector('#modal-meter h2').textContent='Zähler hinzufügen';
+  renderMeters();
 }
 function saveReading(){
   const date=document.getElementById('inp-r-date').value;
@@ -427,7 +477,10 @@ function renderBuildings(){
       return`<div class="card-row" onclick="openBuilding('${b.id}')">
         <div class="icon-wrap icon-building"><i class="ti ti-building"></i></div>
         <div class="row-info"><div class="row-title">${b.name}</div><div class="row-sub">${b.addr||'Keine Adresse'} · ${ac} Bereiche</div></div>
-        <i class="ti ti-chevron-right chevron"></i></div>`;
+        <div class="row-actions" onclick="event.stopPropagation()">
+          <button class="btn-edit" onclick="editBuilding('${b.id}')"><i class="ti ti-pencil"></i></button>
+          <button class="btn-del" onclick="deleteBuilding('${b.id}')"><i class="ti ti-trash"></i></button>
+        </div></div>`;
     }).join('')+'</div>';
 }
 
@@ -448,7 +501,10 @@ function renderAreas(){
       return`<div class="card-row" onclick="openArea('${a.id}')">
         <div class="icon-wrap icon-area"><i class="ti ti-layout-grid"></i></div>
         <div class="row-info"><div class="row-title">${a.name}</div><div class="row-sub">${a.desc||''} · ${mc} Zähler</div></div>
-        <i class="ti ti-chevron-right chevron"></i></div>`;
+        <div class="row-actions" onclick="event.stopPropagation()">
+          <button class="btn-edit" onclick="editArea('${a.id}')"><i class="ti ti-pencil"></i></button>
+          <button class="btn-del" onclick="deleteArea('${a.id}')"><i class="ti ti-trash"></i></button>
+        </div></div>`;
     }).join('')+'</div>';
 }
 
@@ -498,7 +554,10 @@ function renderMeters(){
         <div class="icon-wrap ${info.cls}"><i class="ti ${info.icon}"></i></div>
         <div class="row-info"><div class="row-title">${m.name}${wb}</div>
         <div class="row-sub">${m.zid?'Nr. '+m.zid+' · ':''}${m.unit} · ${rc} Ablesungen</div></div>
-        <i class="ti ti-chevron-right chevron"></i></div>`;
+        <div class="row-actions" onclick="event.stopPropagation()">
+          <button class="btn-edit" onclick="editMeter('${m.id}')"><i class="ti ti-pencil"></i></button>
+          <button class="btn-del" onclick="deleteMeter('${m.id}')"><i class="ti ti-trash"></i></button>
+        </div></div>`;
     }).join('')+'</div>';
 }
 
@@ -547,7 +606,10 @@ function renderReadings(){
     return`<div class="reading-item">
       <div class="reading-date">
         <span><i class="ti ti-calendar" style="font-size:13px;margin-right:4px"></i>${fmtDate(r.date)}</span>
-        <button class="delete-btn" onclick="deleteReading('${r.id}')"><i class="ti ti-trash"></i></button>
+        <div style="display:flex;gap:6px">
+          <button class="btn-edit" onclick="editReading('${r.id}')"><i class="ti ti-pencil"></i></button>
+          <button class="delete-btn" onclick="deleteReading('${r.id}')"><i class="ti ti-trash"></i></button>
+        </div>
       </div>
       <div class="reading-vals${hasR2?'':' single'}">
         <div class="rval-box">
@@ -814,6 +876,99 @@ function exportPDF(){
   doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(160,160,180);
   doc.text('Erstellt mit ZählerApp',margin,292);
   doc.save('Zaehler-'+m.name.replace(/[^a-zA-Z0-9]/g,'-')+'-'+new Date().toISOString().slice(0,10)+'.pdf');
+}
+
+
+// ── EDIT / DELETE ────────────────────────────────────────────
+let editId = null;
+
+function editBuilding(id){
+  const b=DB.buildings.find(x=>x.id===id);
+  document.getElementById('inp-b-name').value=b.name;
+  document.getElementById('inp-b-addr').value=b.addr||'';
+  editId=id;
+  openModal('modal-building');
+  document.querySelector('#modal-building h2').textContent='Gebäude bearbeiten';
+}
+function deleteBuilding(id){
+  const b=DB.buildings.find(x=>x.id===id);
+  const ac=DB.areas.filter(a=>a.bId===id).length;
+  if(!confirm(`"${b.name}" löschen?${ac>0?' Alle '+ac+' Bereiche und Zähler werden ebenfalls gelöscht!':''}`))return;
+  const aIds=DB.areas.filter(a=>a.bId===id).map(a=>a.id);
+  const mIds=DB.meters.filter(m=>aIds.includes(m.aId)).map(m=>m.id);
+  DB.readings=DB.readings.filter(r=>!mIds.includes(r.mId));
+  DB.meters=DB.meters.filter(m=>!aIds.includes(m.aId));
+  DB.areas=DB.areas.filter(a=>a.bId!==id);
+  DB.buildings=DB.buildings.filter(x=>x.id!==id);
+  save();renderBuildings();
+}
+
+function editArea(id){
+  const a=DB.areas.find(x=>x.id===id);
+  document.getElementById('inp-a-name').value=a.name;
+  document.getElementById('inp-a-desc').value=a.desc||'';
+  editId=id;
+  openModal('modal-area');
+  document.querySelector('#modal-area h2').textContent='Bereich bearbeiten';
+}
+function deleteArea(id){
+  const a=DB.areas.find(x=>x.id===id);
+  const mc=DB.meters.filter(m=>m.aId===id).length;
+  if(!confirm(`"${a.name}" löschen?${mc>0?' Alle '+mc+' Zähler werden ebenfalls gelöscht!':''}`))return;
+  const mIds=DB.meters.filter(m=>m.aId===id).map(m=>m.id);
+  DB.readings=DB.readings.filter(r=>!mIds.includes(r.mId));
+  DB.meters=DB.meters.filter(m=>m.aId!==id);
+  DB.areas=DB.areas.filter(x=>x.id!==id);
+  save();renderAreas();
+}
+
+function editMeter(id){
+  const m=DB.meters.find(x=>x.id===id);
+  editId=id;
+  openModal('modal-meter');
+  document.querySelector('#modal-meter h2').textContent='Zähler bearbeiten';
+  selectType(m.type);
+  document.getElementById('inp-m-name').value=m.name;
+  document.getElementById('inp-m-zid').value=m.zid||'';
+  document.getElementById('inp-m-unit').value=m.unit||'kWh';
+  document.getElementById('inp-m-dec').value=m.decimals||4;
+  document.getElementById('inp-m-reg2').value=m.reg2||'';
+  wandlerOn=m.wandler||false;
+  document.getElementById('toggle-wandler').classList.toggle('on',wandlerOn);
+  document.getElementById('wandler-factor-field').style.display=wandlerOn?'block':'none';
+  document.getElementById('inp-m-factor').value=m.factor||50;
+}
+function deleteMeter(id){
+  const m=DB.meters.find(x=>x.id===id);
+  const rc=DB.readings.filter(r=>r.mId===id).length;
+  if(!confirm(`"${m.name}" löschen?${rc>0?' Alle '+rc+' Ablesungen werden ebenfalls gelöscht!':''}`))return;
+  DB.readings=DB.readings.filter(r=>r.mId!==id);
+  DB.meters=DB.meters.filter(x=>x.id!==id);
+  save();renderMeters();
+}
+
+function editReading(id){
+  const r=DB.readings.find(x=>x.id===id);
+  const m=cur.meter;
+  editId=id;
+  document.getElementById('inp-er-date').value=r.date;
+  document.getElementById('inp-er1').value=r.r1;
+  document.getElementById('inp-er1-label').textContent=m.type==='strom'?'1.8.0 Bezug ('+m.unit+')':'Zählerstand ('+m.unit+')';
+  const hasR2=m.reg2;
+  document.getElementById('inp-er2-wrap').style.display=hasR2?'block':'none';
+  if(hasR2){document.getElementById('inp-er2-label').textContent=m.reg2+' ('+m.unit+')';document.getElementById('inp-er2').value=r.r2||'';}
+  openModal('modal-edit-reading');
+}
+function saveEditReading(){
+  const date=document.getElementById('inp-er-date').value;
+  const r1=parseFloat(document.getElementById('inp-er1').value);
+  if(!date||isNaN(r1))return alert('Bitte alle Felder ausfüllen.');
+  const r2val=document.getElementById('inp-er2').value;
+  const r2=cur.meter.reg2&&r2val!==''?parseFloat(r2val):null;
+  const idx=DB.readings.findIndex(x=>x.id===editId);
+  if(idx>-1){DB.readings[idx]={...DB.readings[idx],date,r1,r2};}
+  DB.readings.sort((a,b)=>a.date.localeCompare(b.date));
+  save();closeModal('modal-edit-reading');editId=null;renderReadings();
 }
 
 renderBuildings();
