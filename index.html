@@ -454,6 +454,16 @@ function saveR(){
   if(!date||isNaN(r1))return alert('Bitte alle Felder ausfüllen.');
   const r2v=document.getElementById('i-r2').value;
   const r2=C.m.reg2&&r2v!==''?parseFloat(r2v):null;
+  // Plausibilitätsprüfung
+  const prev=DB.readings.filter(r=>r.mId===C.m.id&&r.date<=date).slice().sort((a,b)=>b.date.localeCompare(a.date))[0];
+  if(prev&&r1<prev.r1){
+    if(!confirm(`Warnung: Zählerstand R1 (${r1}) ist kleiner als vorherige Ablesung (${prev.r1}).
+Trotzdem speichern?`))return;
+  }
+  if(prev&&r2!==null&&prev.r2!==null&&r2<prev.r2){
+    if(!confirm(`Warnung: Zählerstand R2 (${r2}) ist kleiner als vorherige Ablesung (${prev.r2}).
+Trotzdem speichern?`))return;
+  }
   DB.readings.push({id:uid(),mId:C.m.id,date,r1,r2});
   DB.readings.sort((a,b)=>a.date.localeCompare(b.date));
   sv();closeM('m-rdn');rRdn();
@@ -651,7 +661,7 @@ function rRdn(){
         <div class="rb"><div class="rl">${m.type==='s'?'1.8.0 Bezug':'Zählerstand'}</div>
           <div class="rn">${fmN(r.r1,dec)} ${m.unit}</div>
           ${m.wandler?`<div class="rx">→ ${fmN(r.r1*f,dec)} ${m.unit}</div>`:''}</div>
-        ${h2?`<div class="rb"><div class="rl">${esc(m.reg2)}</div>
+        ${h2?`<div class="rb"><div class="rl">2.8.0 Einspeisung</div>
           <div class="rn">${fmN(r.r2,dec)} ${m.unit}</div>
           ${m.wandler?`<div class="rx">→ ${fmN(r.r2*f,dec)} ${m.unit}</div>`:''}</div>`:''}
         ${m.wandler?`<div class="rw"><div class="rl">Hochgerechnet ×${f}</div>
@@ -685,19 +695,19 @@ function rStat(){
   el.innerHTML=`
     <div class="stit">Ø Letzte Periode (${last.days} Tage: ${last.von}–${last.bis})</div>
     <div class="sg">
-      <div class="sc"><div class="sl">Ø Tag${m.reg2?' · Bezug':''}</div><div class="sv">${avgD1.toFixed(2)}<span class="su">${m.unit}</span></div></div>
-      <div class="sc"><div class="sl">Ø Monat${m.reg2?' · Bezug':''}</div><div class="sv">${(avgD1*30.44).toFixed(0)}<span class="su">${m.unit}</span></div></div>
-      ${avgD2!==null?`<div class="sc"><div class="sl">Ø Tag · ${esc(m.reg2||'R2')}</div><div class="sv">${avgD2.toFixed(2)}<span class="su">${m.unit}</span></div></div>
-      <div class="sc"><div class="sl">Ø Monat · ${esc(m.reg2||'R2')}</div><div class="sv">${(avgD2*30.44).toFixed(0)}<span class="su">${m.unit}</span></div></div>`:''}
+      <div class="sc"><div class="sl">Ø Tag${m.reg2?' · 1.8.0':''}</div><div class="sv">${avgD1.toFixed(2)}<span class="su">${m.unit}</span></div></div>
+      <div class="sc"><div class="sl">Ø Monat${m.reg2?' · 1.8.0':''}</div><div class="sv">${(avgD1*30.44).toFixed(0)}<span class="su">${m.unit}</span></div></div>
+      ${avgD2!==null?`<div class="sc"><div class="sl">Ø Tag · 2.8.0</div><div class="sv">${avgD2.toFixed(2)}<span class="su">${m.unit}</span></div></div>
+      <div class="sc"><div class="sl">Ø Monat · 2.8.0</div><div class="sv">${(avgD2*30.44).toFixed(0)}<span class="su">${m.unit}</span></div></div>`:''}
     </div>
     <div class="stit" style="margin-top:14px">Alle Perioden</div>
     <div class="card">${rows.slice().reverse().map(r=>`<div class="ri-item">
       <div class="ri-hd"><span style="font-weight:600;color:var(--t1)">${r.lbl} · ${r.days} Tage</span></div>
       <div class="rv${r.d2===null?' single':''}">
-        <div class="rb"><div class="rl">${m.reg2?'Bezug R1':'Verbrauch'}</div>
+        <div class="rb"><div class="rl">1.8.0 Bezug</div>
           <div class="rn">${r.d1.toFixed(2)} ${m.unit}</div>
           <div class="rx">${r.pd1.toFixed(3)} ${m.unit}/Tag</div></div>
-        ${r.d2!==null?`<div class="rb"><div class="rl">${esc(m.reg2||'R2')}</div>
+        ${r.d2!==null?`<div class="rb"><div class="rl">2.8.0 Einspeisung</div>
           <div class="rn">${r.d2.toFixed(2)} ${m.unit}</div>
           <div class="rx">${r.pd2.toFixed(3)} ${m.unit}/Tag</div></div>`:''}
       </div></div>`).join('')}</div>`;
@@ -716,9 +726,17 @@ function rCost(){
     </div></div>`;
   if(!rows.length){el.innerHTML=html+'<div class="emp" style="padding:28px 0">📊<p>Mindestens 2 Ablesungen nötig.</p></div>';return;}
   let tK=0,tE=0;
-  const cr=rows.map(r=>{const k=r.d1*(pr.buy/100),e=r.d2!==null?r.d2*(pr.sell/100):0,s=e-k;tK+=k;tE+=e;return{...r,k,e,s};});
+  const cr=rows.map(r=>{
+    const d1=Math.max(0,r.d1); // negative Verbräuche (Rückläufer) als 0
+    const d2=r.d2!==null?Math.max(0,r.d2):null;
+    const k=d1*(pr.buy/100);
+    const e=d2!==null?d2*(pr.sell/100):0;
+    const s=e-k; // Saldo = Ertrag - Kosten
+    tK+=k;tE+=e;
+    return{...r,k,e,s};
+  });
   const tS=tE-tK;const sc=tS>0?'pos':tS<0?'neg':'neu';
-  html+=`<div class="sbox ${sc}"><div class="sl2 ${sc}">${tS>=0?'Gesamtertrag':'Gesamtkosten'}</div>
+  html+=`<div class="sbox ${sc}"><div class="sl2 ${sc}">${tS>=0?'Gesamtertrag (Einspeisung überwiegt)':'Gesamtkosten (Bezug überwiegt)'}</div>
     <div class="sv2 ${sc}">${tS>=0?'+':''}${tS.toFixed(2)} €</div>
     <div style="font-size:12px;margin-top:4px;opacity:.8">Kosten: ${tK.toFixed(2)} € · Ertrag: ${tE.toFixed(2)} €</div></div>
   <div class="stit">Aufstellung je Periode</div>
@@ -728,8 +746,8 @@ function rCost(){
       <div class="ri-hd"><span style="font-weight:600;color:var(--t1)">${r.lbl} · ${r.days} Tage</span>
         <span class="${sc2}" style="font-weight:700;font-size:15px">${r.s>=0?'+':''}${r.s.toFixed(2)} €</span></div>
       <div class="rv${r.d2===null?' single':''}">
-        <div class="rb"><div class="rl">Bezug</div><div class="rn">${r.d1.toFixed(2)} ${m.unit}</div><div class="rx cn">−${r.k.toFixed(2)} €</div></div>
-        ${r.d2!==null?`<div class="rb"><div class="rl">${esc(m.reg2||'Einspeisung')}</div><div class="rn">${r.d2.toFixed(2)} ${m.unit}</div><div class="rx cp">+${r.e.toFixed(2)} €</div></div>`:''}
+        <div class="rb"><div class="rl">1.8.0 Bezug</div><div class="rn">${r.d1.toFixed(2)} ${m.unit}</div><div class="rx cn">−${r.k.toFixed(2)} €</div></div>
+        ${r.d2!==null?`<div class="rb"><div class="rl">2.8.0 Einspeisung</div><div class="rn">${r.d2.toFixed(2)} ${m.unit}</div><div class="rx cp">+${r.e.toFixed(2)} €</div></div>`:''}
       </div></div>`;
   }).join('')}</div>`;
   el.innerHTML=html;
@@ -780,15 +798,15 @@ function exportPDF(){
       ['Gesamtverbrauch (alle Perioden)',`${t1.toFixed(2)} ${m.unit}`,t2>0?`${t2.toFixed(2)} ${m.unit}`:'–'],
     ];
     if(pr.buy>0){
-      const tK=rows.reduce((s,r)=>s+r.d1*(pr.buy/100),0);
-      const tE=rows.reduce((s,r)=>s+(r.d2!==null?r.d2*(pr.sell/100):0),0);
+      const tK=rows.reduce((s,r)=>s+Math.max(0,r.d1)*(pr.buy/100),0);
+      const tE=rows.reduce((s,r)=>s+(r.d2!==null?Math.max(0,r.d2)*(pr.sell/100):0),0);
       kRows.push(['Gesamtkosten Bezug',`${tK.toFixed(2)} €`,'']);
       if(pr.sell>0)kRows.push(['Gesamtertrag Einspeisung',`${tE.toFixed(2)} €`,'']);
       kRows.push(['Saldo',(tE-tK>=0?'+':'')+(tE-tK).toFixed(2)+' €','']);
     }
     doc.autoTable({
       startY:y,margin:{left:M,right:M},
-      head:[['Kennzahl',m.reg2?'Bezug R1':'Wert',m.reg2?m.reg2:'']],
+      head:[['Kennzahl','1.8.0 Bezug','2.8.0 Einspeisung']],
       body:kRows,
       theme:'grid',
       headStyles:{fillColor:[cr,cg,cb],textColor:255,fontSize:8.5,fontStyle:'bold'},
@@ -807,12 +825,14 @@ function exportPDF(){
     const hasR2=m.reg2&&rows.some(r=>r.d2!==null);
     const hasCost=pr.buy>0;
     const pHead=hasR2
-      ? ['Zeitraum','Tage',`Bezug (${m.unit})`,`${m.reg2} (${m.unit})`,'Ø Tag','Kosten €','Ertrag €','Saldo €']
+      ? ['Zeitraum','Tage',`1.8.0 Bezug (${m.unit})`,`2.8.0 Einspeisung (${m.unit})`,'Ø Tag','Kosten €','Ertrag €','Saldo €']
       : ['Zeitraum','Tage',`Verbrauch (${m.unit})`,'Ø Tag/'+m.unit,hasCost?'Kosten €':''];
     const pBody=rows.slice().reverse().map(r=>{
-      const k=(r.d1*(pr.buy/100)).toFixed(2);
-      const e=r.d2!==null?(r.d2*(pr.sell/100)).toFixed(2):'–';
-      const s=r.d2!==null?((r.d2*(pr.sell/100))-(r.d1*(pr.buy/100))).toFixed(2):'–';
+      const _d1=Math.max(0,r.d1);
+      const _d2=r.d2!==null?Math.max(0,r.d2):null;
+      const k=(_d1*(pr.buy/100)).toFixed(2);
+      const e=_d2!==null?(_d2*(pr.sell/100)).toFixed(2):'–';
+      const s=_d2!==null?((_d2*(pr.sell/100))-(_d1*(pr.buy/100))).toFixed(2):'–';
       return hasR2
         ? [`${r.von}–${r.bis}`,r.days,r.d1.toFixed(2),r.d2!==null?r.d2.toFixed(2):'–',r.pd1.toFixed(3),hasCost?k:'',hasCost?e:'',hasCost?s:'']
         : [`${r.von}–${r.bis}`,r.days,r.d1.toFixed(2),r.pd1.toFixed(3),hasCost?k:''];
