@@ -689,28 +689,65 @@ function calcP(){
 
 function rStat(){
   const el=document.getElementById('tc-s');
-  const m=C.m;const{rows,t1,t2,tD,last}=calcP();
+  const m=C.m;const{rows,t1,t2,tD}=calcP();
   if(!rows.length){el.innerHTML='<div class="emp">📊<p>Mindestens 2 Ablesungen nötig.</p></div>';return;}
-  const avgD1=last.pd1,avgD2=last.pd2;
+  // Gesamtdurchschnitt als Referenz
+  const refD1=tD>0?t1/tD:0;
+  const refD2=tD>0&&t2>0?t2/tD:null;
+
+  // Abweichungs-Farbe
+  function devColor(pd, ref){
+    if(ref===0)return'';
+    const pct=((pd-ref)/ref)*100;
+    if(Math.abs(pct)<=20)return'color:var(--ok)';
+    if(Math.abs(pct)<=50)return'color:var(--warn)';
+    return'color:var(--err)';
+  }
+  function devLabel(pd, ref){
+    if(ref===0)return'';
+    const pct=((pd-ref)/ref)*100;
+    return(pct>=0?'+':'')+pct.toFixed(0)+'% vs Ø';
+  }
+
   el.innerHTML=`
-    <div class="stit">Ø Letzte Periode (${last.days} Tage: ${last.von}–${last.bis})</div>
+    <div class="stit">Gesamtdurchschnitt (Referenz)</div>
     <div class="sg">
-      <div class="sc"><div class="sl">Ø Tag${m.reg2?' · 1.8.0':''}</div><div class="sv">${avgD1.toFixed(2)}<span class="su">${m.unit}</span></div></div>
-      <div class="sc"><div class="sl">Ø Monat${m.reg2?' · 1.8.0':''}</div><div class="sv">${(avgD1*30.44).toFixed(0)}<span class="su">${m.unit}</span></div></div>
-      ${avgD2!==null?`<div class="sc"><div class="sl">Ø Tag · 2.8.0</div><div class="sv">${avgD2.toFixed(2)}<span class="su">${m.unit}</span></div></div>
-      <div class="sc"><div class="sl">Ø Monat · 2.8.0</div><div class="sv">${(avgD2*30.44).toFixed(0)}<span class="su">${m.unit}</span></div></div>`:''}
+      <div class="sc"><div class="sl">Ø Tag${m.reg2?' · 1.8.0':''}</div><div class="sv">${refD1.toFixed(3)}<span class="su">${m.unit}/Tag</span></div></div>
+      <div class="sc"><div class="sl">Ø Monat${m.reg2?' · 1.8.0':''}</div><div class="sv">${(refD1*30.44).toFixed(1)}<span class="su">${m.unit}/M</span></div></div>
+      ${refD2!==null?`<div class="sc"><div class="sl">Ø Tag · 2.8.0</div><div class="sv">${refD2.toFixed(3)}<span class="su">${m.unit}/Tag</span></div></div>
+      <div class="sc"><div class="sl">Ø Monat · 2.8.0</div><div class="sv">${(refD2*30.44).toFixed(1)}<span class="su">${m.unit}/M</span></div></div>`:''}
     </div>
-    <div class="stit" style="margin-top:14px">Alle Perioden</div>
-    <div class="card">${rows.slice().reverse().map(r=>`<div class="ri-item">
-      <div class="ri-hd"><span style="font-weight:600;color:var(--t1)">${r.lbl} · ${r.days} Tage</span></div>
-      <div class="rv${r.d2===null?' single':''}">
-        <div class="rb"><div class="rl">1.8.0 Bezug</div>
-          <div class="rn">${r.d1.toFixed(2)} ${m.unit}</div>
-          <div class="rx">${r.pd1.toFixed(3)} ${m.unit}/Tag</div></div>
-        ${r.d2!==null?`<div class="rb"><div class="rl">2.8.0 Einspeisung</div>
-          <div class="rn">${r.d2.toFixed(2)} ${m.unit}</div>
-          <div class="rx">${r.pd2.toFixed(3)} ${m.unit}/Tag</div></div>`:''}
-      </div></div>`).join('')}</div>`;
+    <div class="stit" style="margin-top:14px">Perioden im Vergleich <span style="font-size:10px;font-weight:400;color:var(--t3)">(🟢 normal ±20% | 🟡 auffällig ±50% | 🔴 Ausreißer)</span></div>
+    <div class="card">${rows.slice().reverse().map(r=>{
+      const col1=devColor(r.pd1,refD1);
+      const lbl1=devLabel(r.pd1,refD1);
+      const col2=r.pd2!==null?devColor(r.pd2,refD2||0):'';
+      const lbl2=r.pd2!==null?devLabel(r.pd2,refD2||0):'';
+      return`<div class="ri-item">
+        <div class="ri-hd">
+          <span style="font-weight:600;color:var(--t1)">${r.von} – ${r.bis}</span>
+          <span style="font-size:12px;color:var(--t3)">${r.days} Tage</span>
+        </div>
+        <div class="rv${r.d2===null?' single':''}">
+          <div class="rb">
+            <div class="rl">1.8.0 Bezug</div>
+            <div class="rn">${r.d1.toFixed(2)} ${m.unit}</div>
+            <div class="rx" style="display:flex;justify-content:space-between">
+              <span>${r.pd1.toFixed(3)} ${m.unit}/Tag</span>
+              <span style="${col1};font-weight:600;font-size:11px">${lbl1}</span>
+            </div>
+          </div>
+          ${r.d2!==null?`<div class="rb">
+            <div class="rl">2.8.0 Einspeisung</div>
+            <div class="rn">${r.d2.toFixed(2)} ${m.unit}</div>
+            <div class="rx" style="display:flex;justify-content:space-between">
+              <span>${r.pd2.toFixed(3)} ${m.unit}/Tag</span>
+              <span style="${col2};font-weight:600;font-size:11px">${lbl2}</span>
+            </div>
+          </div>`:''}
+        </div>
+      </div>`;
+    }).join('')}</div>`;
 }
 
 function gPrices(id){try{return JSON.parse(localStorage.getItem('pr_'+id))||{buy:0,sell:0};}catch(e){return{buy:0,sell:0};}}
@@ -793,8 +830,8 @@ function exportPDF(){
     doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(30,30,50);
     doc.text('KENNZAHLEN',M,y+5);y+=9;
     const kRows=[
-      ['Ø Verbrauch/Tag (letzte Periode)',`${last.pd1.toFixed(3)} ${m.unit}`,last.pd2!==null?`${last.pd2.toFixed(3)} ${m.unit}`:'–'],
-      ['Ø Verbrauch/Monat (letzte Periode)',`${(last.pd1*30.44).toFixed(1)} ${m.unit}`,last.pd2!==null?`${(last.pd2*30.44).toFixed(1)} ${m.unit}`:'–'],
+      ['Ø Verbrauch/Tag (Gesamtdurchschnitt)',`${(tD>0?t1/tD:0).toFixed(3)} ${m.unit}`,t2>0?`${(tD>0?t2/tD:0).toFixed(3)} ${m.unit}`:'–'],
+      ['Ø Verbrauch/Monat (Gesamtdurchschnitt)',`${(tD>0?(t1/tD)*30.44:0).toFixed(1)} ${m.unit}`,t2>0?`${(tD>0?(t2/tD)*30.44:0).toFixed(1)} ${m.unit}`:'–'],
       ['Gesamtverbrauch (alle Perioden)',`${t1.toFixed(2)} ${m.unit}`,t2>0?`${t2.toFixed(2)} ${m.unit}`:'–'],
     ];
     if(pr.buy>0){
@@ -824,18 +861,21 @@ function exportPDF(){
     doc.text('VERBRAUCH JE PERIODE',M,y+5);y+=9;
     const hasR2=m.reg2&&rows.some(r=>r.d2!==null);
     const hasCost=pr.buy>0;
+    const refD1pdf=tD>0?t1/tD:0;
     const pHead=hasR2
-      ? ['Zeitraum','Tage',`1.8.0 Bezug (${m.unit})`,`2.8.0 Einspeisung (${m.unit})`,'Ø Tag','Kosten €','Ertrag €','Saldo €']
-      : ['Zeitraum','Tage',`Verbrauch (${m.unit})`,'Ø Tag/'+m.unit,hasCost?'Kosten €':''];
+      ? ['Zeitraum','Tage',`1.8.0 Bezug (${m.unit})`,`2.8.0 Einspeisung (${m.unit})`,'Ø Tag','Abw. Ø',hasCost?'Kosten €':'',hasCost?'Ertrag €':'',hasCost?'Saldo €':''].filter(Boolean)
+      : ['Zeitraum','Tage',`Verbrauch (${m.unit})`,'Ø Tag','Abw. Ø',hasCost?'Kosten €':''].filter(Boolean);
     const pBody=rows.slice().reverse().map(r=>{
       const _d1=Math.max(0,r.d1);
       const _d2=r.d2!==null?Math.max(0,r.d2):null;
       const k=(_d1*(pr.buy/100)).toFixed(2);
       const e=_d2!==null?(_d2*(pr.sell/100)).toFixed(2):'–';
       const s=_d2!==null?((_d2*(pr.sell/100))-(_d1*(pr.buy/100))).toFixed(2):'–';
+      const devPct=refD1pdf>0?(((r.pd1-refD1pdf)/refD1pdf)*100):0;
+      const devStr=(devPct>=0?'+':'')+devPct.toFixed(0)+'%';
       return hasR2
-        ? [`${r.von}–${r.bis}`,r.days,r.d1.toFixed(2),r.d2!==null?r.d2.toFixed(2):'–',r.pd1.toFixed(3),hasCost?k:'',hasCost?e:'',hasCost?s:'']
-        : [`${r.von}–${r.bis}`,r.days,r.d1.toFixed(2),r.pd1.toFixed(3),hasCost?k:''];
+        ? [`${r.von}–${r.bis}`,r.days,r.d1.toFixed(2),r.d2!==null?r.d2.toFixed(2):'–',r.pd1.toFixed(3),devStr,hasCost?k:'',hasCost?e:'',hasCost?s:''].filter((_,i)=>!(i>=6&&!hasCost))
+        : [`${r.von}–${r.bis}`,r.days,r.d1.toFixed(2),r.pd1.toFixed(3),devStr,hasCost?k:''].filter((_,i)=>!(i===5&&!hasCost));
     });
     doc.autoTable({
       startY:y,margin:{left:M,right:M},
