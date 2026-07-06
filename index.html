@@ -386,6 +386,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--t1);min-height:100
   <div class="top">
     <button class="back" onclick="goTo('s-m')">‹Zurück</button>
     <h1 id="t-d">Zähler</h1>
+    <button class="ib" onclick="openM('m-ztausch')" title="Zählertausch">🔄</button>
     <button class="ib" onclick="exportPDF()">PDF</button>
     <button class="ib" onclick="openM('m-rdn')">+</button>
   </div>
@@ -470,6 +471,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--t1);min-height:100
     <div class="fl"><label>Datum</label><input type="date" id="i-rd"></div>
     <div class="fl"><label id="i-r1l">Zählerstand</label><input type="number" id="i-r1" placeholder="0.0000" step="any"></div>
     <div class="fl" id="i-r2w" style="display:none"><label id="i-r2l">Register 2</label><input type="number" id="i-r2" step="any"></div>
+    <div class="fl"><label>Bemerkung (optional)</label><input type="text" id="i-rk" placeholder="z.B. Zähler defekt, Ablesung geschätzt"></div>
     <div class="br">
       <button class="bs2" onclick="closeM('m-rdn')">Abbrechen</button>
       <button class="bp" onclick="saveR()">Speichern</button>
@@ -485,9 +487,31 @@ body{font-family:var(--font);background:var(--bg);color:var(--t1);min-height:100
     <div class="fl"><label>Datum</label><input type="date" id="i-erd"></div>
     <div class="fl"><label id="i-er1l">Zählerstand</label><input type="number" id="i-er1" step="any"></div>
     <div class="fl" id="i-er2w" style="display:none"><label id="i-er2l">Register 2</label><input type="number" id="i-er2" step="any"></div>
+    <div class="fl"><label>Bemerkung (optional)</label><input type="text" id="i-erk" placeholder="z.B. Zähler defekt, Ablesung geschätzt"></div>
     <div class="br">
       <button class="bs2" onclick="closeM('m-rde')">Abbrechen</button>
       <button class="bp" onclick="saveRE()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ZÄHLERTAUSCH -->
+<div class="mo" id="m-ztausch" onclick="closeOnOv(event,'m-ztausch')">
+  <div class="mb">
+    <div class="mh"></div>
+    <h2>🔄 Zählertausch</h2>
+    <div style="background:var(--warn-bg);border-radius:var(--r);padding:12px 14px;margin-bottom:16px;font-size:13px;color:var(--warn)">
+      ⚠️ Der alte Zählerstand wird abgeschlossen. Statistiken vor dem Tausch bleiben erhalten.
+    </div>
+    <div class="fl"><label>Datum des Tausches</label><input type="date" id="i-zt-date"></div>
+    <div class="fl"><label>Abschlusswert alter Zähler – 1.8.0</label><input type="number" id="i-zt-old1" placeholder="Letzter Stand alter Zähler" step="any"></div>
+    <div class="fl" id="i-zt-old2w" style="display:none"><label>Abschlusswert alter Zähler – 2.8.0</label><input type="number" id="i-zt-old2" step="any"></div>
+    <div class="fl"><label>Startwert neuer Zähler – 1.8.0</label><input type="number" id="i-zt-new1" placeholder="Anfangswert neuer Zähler" step="any"></div>
+    <div class="fl" id="i-zt-new2w" style="display:none"><label>Startwert neuer Zähler – 2.8.0</label><input type="number" id="i-zt-new2" step="any"></div>
+    <div class="fl"><label>Neue Zählernummer (optional)</label><input type="text" id="i-zt-zid" placeholder="z.B. 9876543210"></div>
+    <div class="br">
+      <button class="bs2" onclick="closeM('m-ztausch')">Abbrechen</button>
+      <button class="bp" onclick="saveZT()">Tausch durchführen</button>
     </div>
   </div>
 </div>
@@ -545,6 +569,7 @@ function openM(id){
   if(id==='m-rdn'){
     document.getElementById('i-rd').value=new Date().toISOString().slice(0,10);
     document.getElementById('i-r1').value='';document.getElementById('i-r2').value='';
+    document.getElementById('i-rk').value='';
     const m=C.m;
     document.getElementById('i-r1l').textContent=(m.type==='s'?'1.8.0 Bezug':'Zählerstand')+' ('+m.unit+')';
     const h2=m.type==='s'&&m.reg2;
@@ -562,6 +587,14 @@ function openM(id){
     document.getElementById('i-mu').value=ud[C.t]||'kWh';
     document.getElementById('i-md').value='4';
     document.getElementById('h-mtr').textContent='Zähler hinzufügen';
+  }
+  if(id==='m-ztausch'){
+    document.getElementById('i-zt-date').value=new Date().toISOString().slice(0,10);
+    document.getElementById('i-zt-old1').value='';document.getElementById('i-zt-new1').value='';
+    document.getElementById('i-zt-old2').value='';document.getElementById('i-zt-new2').value='';
+    document.getElementById('i-zt-zid').value=C.m.zid||'';
+    document.getElementById('i-zt-old2w').style.display=C.m.reg2?'block':'none';
+    document.getElementById('i-zt-new2w').style.display=C.m.reg2?'block':'none';
   }
   if(id==='m-bld'&&!editId){document.getElementById('i-bn').value='';document.getElementById('i-ba').value='';document.getElementById('h-bld').textContent='Gebäude hinzufügen';}
   if(id==='m-are'&&!editId){document.getElementById('i-an').value='';document.getElementById('i-ad').value='';document.getElementById('h-are').textContent='Bereich hinzufügen';}
@@ -630,7 +663,8 @@ Trotzdem speichern?`))return;
     if(!confirm(`Warnung: Zählerstand R2 (${r2}) ist kleiner als vorherige Ablesung (${prev.r2}).
 Trotzdem speichern?`))return;
   }
-  DB.readings.push({id:uid(),mId:C.m.id,date,r1,r2});
+  const komm=document.getElementById('i-rk').value.trim();
+  DB.readings.push({id:uid(),mId:C.m.id,date,r1,r2,komm:komm||null});
   DB.readings.sort((a,b)=>a.date.localeCompare(b.date));
   sv();closeM('m-rdn');rRdn();
 }
@@ -640,8 +674,9 @@ function saveRE(){
   if(!date||isNaN(r1))return alert('Bitte alle Felder ausfüllen.');
   const r2v=document.getElementById('i-er2').value;
   const r2=C.m.reg2&&r2v!==''?parseFloat(r2v):null;
+  const komm=document.getElementById('i-erk').value.trim();
   const r=DB.readings.find(x=>x.id===editId);
-  if(r){r.date=date;r.r1=r1;r.r2=r2;}
+  if(r){r.date=date;r.r1=r1;r.r2=r2;r.komm=komm||null;}
   DB.readings.sort((a,b)=>a.date.localeCompare(b.date));
   sv();closeM('m-rde');editId=null;rRdn();
 }
@@ -698,6 +733,7 @@ function editRdn(id){
   const h2=m.type==='s'&&m.reg2;
   document.getElementById('i-er2w').style.display=h2?'block':'none';
   if(h2){document.getElementById('i-er2l').textContent=m.reg2+' ('+m.unit+')';document.getElementById('i-er2').value=r.r2||'';}
+  document.getElementById('i-erk').value=r.komm||'';
   openM('m-rde');
 }
 function delRdn(id){if(!confirm('Ablesung löschen?'))return;DB.readings=DB.readings.filter(r=>r.id!==id);sv();rRdn();}
@@ -707,6 +743,43 @@ function delRdn(id){if(!confirm('Ablesung löschen?'))return;DB.readings=DB.read
 // ═══════════════════════════════════════════════════
 function tInfo(t){return{s:{icon:'⚡',lbl:'Strom',cls:'ib-str'},w:{icon:'💧',lbl:'Wasser',cls:'ib-wat'},h:{icon:'🔥',lbl:'Wärme',cls:'ib-hea'}}[t]||{icon:'⚡',lbl:'Strom',cls:'ib-str'};}
 
+
+// ── ZÄHLERTAUSCH ──
+function saveZT(){
+  const date=document.getElementById('i-zt-date').value;
+  const old1=parseFloat(document.getElementById('i-zt-old1').value);
+  const new1=parseFloat(document.getElementById('i-zt-new1').value);
+  if(!date||isNaN(old1)||isNaN(new1))return alert('Bitte Datum, Abschlusswert und Startwert ausfüllen.');
+  const old2v=document.getElementById('i-zt-old2').value;
+  const new2v=document.getElementById('i-zt-new2').value;
+  const old2=C.m.reg2&&old2v!==''?parseFloat(old2v):null;
+  const new2=C.m.reg2&&new2v!==''?parseFloat(new2v):null;
+  const newZid=document.getElementById('i-zt-zid').value.trim();
+
+  // 1. Add final reading for old meter
+  DB.readings.push({id:uid(),mId:C.m.id,date,r1:old1,r2:old2,komm:'Abschlussablesung – Zählertausch'});
+
+  // 2. Create new meter (copy of current, new ID, reset)
+  const newMeter={
+    ...C.m,
+    id:uid(),
+    name:C.m.name+' (neu)',
+    zid:newZid||C.m.zid,
+    komm:'Zählertausch am '+new Date(date+'T12:00:00').toLocaleDateString('de-DE')
+  };
+  DB.meters.push(newMeter);
+
+  // 3. Add start reading for new meter
+  DB.readings.push({id:uid(),mId:newMeter.id,date,r1:new1,r2:new2,komm:'Erstablesung – Zählertausch'});
+  DB.readings.sort((a,b)=>a.date.localeCompare(b.date));
+
+  // 4. Update zid of old meter to mark as replaced
+  C.m.name=C.m.name+' (alt)';
+
+  sv();closeM('m-ztausch');
+  alert('Zählertausch durchgeführt!\n\nAlter Zähler: "'+C.m.name+'" (Abschlussstand gespeichert)\nNeuer Zähler: "'+newMeter.name+'" wurde angelegt.');
+  goTo('s-m');rM();
+}
 // ═══════════════════════════════════════════════════
 // RENDER
 // ═══════════════════════════════════════════════════
@@ -832,7 +905,9 @@ function rRdn(){
           ${m.wandler?`<div class="rx">→ ${fmN(r.r2*f,dec)} ${m.unit}</div>`:''}</div>`:''}
         ${m.wandler?`<div class="rw"><div class="rl">Hochgerechnet ×${f}</div>
           <div class="rn">${fmN(r.r1*f,dec)}${h2?' / '+fmN(r.r2*f,dec):''} ${m.unit}</div></div>`:''}
-      </div></div>`;
+      </div>
+      ${r.komm?`<div style="margin-top:7px;padding:8px 10px;background:var(--s3);border-radius:8px;font-size:13px;color:var(--t2)">💬 ${esc(r.komm)}</div>`:''}
+    </div>`;
   }).join('');
 }
 
