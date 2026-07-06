@@ -340,6 +340,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--t1);min-height:100
 <div class="scr on" id="s-b">
   <div class="top">
     <h1>⚡ Zähler<span class="acc-c">App</span></h1>
+    <button class="ib" onclick="openM('m-settings')" title="Einstellungen">⚙️</button>
     <button class="ib" onclick="openM('m-bak')">💾</button>
     <button class="ib" onclick="openM('m-bld')">+</button>
   </div>
@@ -356,7 +357,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--t1);min-height:100
   </div>
   <div class="bc" id="bc-a"></div>
   <div class="cnt" id="l-a"></div>
-  <button class="fab" onclick="openM('m-are')">+</button>
+  <button class="fab" onclick="goTo('s-b')" title="Zurück" style="font-size:20px">←</button>
 </div>
 
 <!-- S3: ZÄHLERTYPEN -->
@@ -367,6 +368,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--t1);min-height:100
   </div>
   <div class="bc" id="bc-t"></div>
   <div class="cnt" id="l-t"></div>
+  <button class="fab" onclick="goTo('s-a')" title="Zurück" style="font-size:20px">←</button>
 </div>
 
 <!-- S4: ZÄHLER -->
@@ -378,7 +380,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--t1);min-height:100
   </div>
   <div class="bc" id="bc-m"></div>
   <div class="cnt" id="l-m"></div>
-  <button class="fab" onclick="openM('m-mtr')">+</button>
+  <button class="fab" onclick="goTo('s-t')" title="Zurück" style="font-size:20px">←</button>
 </div>
 
 <!-- S5: DETAIL -->
@@ -399,7 +401,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--t1);min-height:100
       <div class="tc" id="tc-c"></div>
     </div>
   </div>
-  <button class="fab" onclick="openM('m-rdn')">+</button>
+  <button class="fab" onclick="goTo('s-m')" title="Zurück" style="font-size:20px">←</button>
 </div>
 
 <!-- MODAL: GEBÄUDE -->
@@ -516,6 +518,51 @@ body{font-family:var(--font);background:var(--bg);color:var(--t1);min-height:100
   </div>
 </div>
 
+<!-- MODAL: EINSTELLUNGEN -->
+<div class="mo" id="m-settings" onclick="closeOnOv(event,'m-settings')">
+  <div class="mb">
+    <div class="mh"></div>
+    <h2>⚙️ Einstellungen</h2>
+
+    <div class="stit">Erinnerungen</div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="cr" style="cursor:default">
+        <div class="ri2">
+          <div class="rt">Ablesungs-Erinnerung</div>
+          <div class="rs">Regelmäßig an Zählerablesung erinnern</div>
+        </div>
+        <button class="tog" id="tog-remind" onclick="togRemind()"></button>
+      </div>
+      <div id="remind-opts" style="display:none;padding:12px 16px;border-top:0.5px solid var(--bor)">
+        <div class="fl"><label>Erinnerungsintervall</label>
+          <select id="sel-interval" onchange="saveSettings()">
+            <option value="7">Wöchentlich</option>
+            <option value="14">Alle 2 Wochen</option>
+            <option value="30" selected>Monatlich</option>
+            <option value="90">Vierteljährlich</option>
+          </select>
+        </div>
+        <div class="fl"><label>Uhrzeit</label>
+          <input type="time" id="inp-remind-time" value="08:00" onchange="saveSettings()">
+        </div>
+        <button class="bp" onclick="testReminder()" style="width:100%;margin-top:4px">🔔 Testbenachrichtigung senden</button>
+      </div>
+    </div>
+
+    <div class="stit">App-Info</div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="cr" style="cursor:default">
+        <div class="ri2"><div class="rt">Version</div><div class="rs">ZählerApp v2.0</div></div>
+      </div>
+      <div class="cr" style="cursor:default">
+        <div class="ri2"><div class="rt">Gespeicherte Daten</div><div class="rs" id="data-info">–</div></div>
+      </div>
+    </div>
+
+    <button class="bs2" onclick="closeM('m-settings')" style="width:100%">Schließen</button>
+  </div>
+</div>
+
 <!-- MODAL: BACKUP -->
 <div class="mo" id="m-bak" onclick="closeOnOv(event,'m-bak')">
   <div class="mb">
@@ -588,6 +635,7 @@ function openM(id){
     document.getElementById('i-md').value='4';
     document.getElementById('h-mtr').textContent='Zähler hinzufügen';
   }
+  if(id==='m-settings'){initSettings();}
   if(id==='m-ztausch'){
     document.getElementById('i-zt-date').value=new Date().toISOString().slice(0,10);
     document.getElementById('i-zt-old1').value='';document.getElementById('i-zt-new1').value='';
@@ -958,6 +1006,37 @@ function rStat(){
       ${refD2!==null?`<div class="sc"><div class="sl">Ø Tag · 2.8.0</div><div class="sv">${refD2.toFixed(3)}<span class="su">${m.unit}/Tag</span></div></div>
       <div class="sc"><div class="sl">Ø Monat · 2.8.0</div><div class="sv">${(refD2*30.44).toFixed(1)}<span class="su">${m.unit}/M</span></div></div>`:''}
     </div>
+
+    <div class="stit" style="margin-top:14px">Jahresauswertung</div>
+    ${(()=>{
+      const years={};
+      DB.readings.filter(r=>r.mId===m.id).sort((a,b)=>a.date.localeCompare(b.date)).forEach((r,i,arr)=>{
+        if(i===0)return;
+        const prev=arr[i-1];
+        const yr=r.date.slice(0,4);
+        const days=(new Date(r.date+'T12:00:00')-new Date(prev.date+'T12:00:00'))/(864e5);
+        if(days<=0)return;
+        const f=m.wandler?m.factor:1;
+        const d1=Math.max(0,(r.r1-prev.r1)*f);
+        const d2=m.reg2&&r.r2!==null&&prev.r2!==null?Math.max(0,(r.r2-prev.r2)*f):null;
+        if(!years[yr])years[yr]={yr,d1:0,d2:0,days:0};
+        years[yr].d1+=d1;if(d2!==null)years[yr].d2+=d2;years[yr].days+=Math.round(days);
+      });
+      const yRows=Object.values(years).sort((a,b)=>b.yr-a.yr);
+      if(!yRows.length)return'<div style="color:var(--t3);font-size:13px;padding:8px 4px">Keine Jahresdaten verfügbar</div>';
+      return'<div class="card">'+yRows.map(y=>`<div class="cr" style="cursor:default;min-height:auto;padding:12px 14px">
+        <div class="ri2">
+          <div class="rt" style="font-size:15px">${y.yr}</div>
+          <div class="rs">${y.days} Tage erfasst</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:14px;font-weight:600">${fmN(y.d1,1)} ${m.unit}</div>
+          <div style="font-size:11px;color:var(--t3)">1.8.0 Bezug</div>
+          ${y.d2>0?`<div style="font-size:14px;font-weight:600;color:var(--ok)">${fmN(y.d2,1)} ${m.unit}</div><div style="font-size:11px;color:var(--t3)">2.8.0 Einspeisung</div>`:''}
+        </div>
+      </div>`).join('')+'</div>';
+    })()}
+
     <div class="stit" style="margin-top:14px">Perioden im Vergleich <span style="font-size:10px;font-weight:400;color:var(--t3)">(🟢 normal ±20% | 🟡 auffällig ±50% | 🔴 Ausreißer)</span></div>
     <div class="card">${rows.slice().reverse().map(r=>{
       const col1=devColor(r.pd1,refD1);
@@ -1017,6 +1096,41 @@ function rCost(){
   html+=`<div class="sbox ${sc}"><div class="sl2 ${sc}">${tS>=0?'Gesamtertrag (Einspeisung überwiegt)':'Gesamtkosten (Bezug überwiegt)'}</div>
     <div class="sv2 ${sc}">${tS>=0?'+':''}${tS.toFixed(2)} €</div>
     <div style="font-size:12px;margin-top:4px;opacity:.8">Kosten: ${tK.toFixed(2)} € · Ertrag: ${tE.toFixed(2)} €</div></div>
+  <div class="stit">Jahresauswertung</div>
+  ${(()=>{
+    const years={};
+    DB.readings.filter(r=>r.mId===m.id).sort((a,b)=>a.date.localeCompare(b.date)).forEach((r,i,arr)=>{
+      if(i===0)return;
+      const prev=arr[i-1];
+      const yr=r.date.slice(0,4);
+      const days=(new Date(r.date+'T12:00:00')-new Date(prev.date+'T12:00:00'))/(864e5);
+      if(days<=0)return;
+      const f=m.wandler?m.factor:1;
+      const d1=Math.max(0,(r.r1-prev.r1)*f);
+      const d2=m.reg2&&r.r2!==null&&prev.r2!==null?Math.max(0,(r.r2-prev.r2)*f):null;
+      if(!years[yr])years[yr]={yr,d1:0,d2:0};
+      years[yr].d1+=d1;if(d2!==null)years[yr].d2+=d2;
+    });
+    const yRows=Object.values(years).sort((a,b)=>b.yr-a.yr);
+    if(!yRows.length||(!pr.buy&&!pr.sell))return'<div style="color:var(--t3);font-size:13px;padding:8px 4px">Preise eintragen um Jahreskosten zu sehen</div>';
+    return'<div class="card">'+yRows.map(y=>{
+      const k=(y.d1*(pr.buy/100)).toFixed(2);
+      const e=(y.d2*(pr.sell/100)).toFixed(2);
+      const s=(parseFloat(e)-parseFloat(k)).toFixed(2);
+      const sc=parseFloat(s)>=0?'var(--ok)':'var(--err)';
+      return`<div class="cr" style="cursor:default;min-height:auto;padding:12px 14px">
+        <div class="ri2">
+          <div class="rt" style="font-size:15px">${y.yr}</div>
+          <div class="rs">Kosten: ${k} € · Ertrag: ${e} €</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:17px;font-weight:700;color:${sc}">${parseFloat(s)>=0?'+':''}${s} €</div>
+          <div style="font-size:11px;color:var(--t3)">Saldo</div>
+        </div>
+      </div>`;
+    }).join('')+'</div>';
+  })()}
+
   <div class="stit">Aufstellung je Periode</div>
   <div class="card">${cr.slice().reverse().map(r=>{
     const sc2=r.s>0?'cp':r.s<0?'cn':'';
@@ -1165,6 +1279,71 @@ function exportPDF(){
   }
 
   doc.save(`Zaehler-${m.name.replace(/[^a-zA-Z0-9]/g,'-')}-${new Date().toISOString().slice(0,10)}.pdf`);
+}
+
+
+// ═══════════════════════════════════════════════════
+// EINSTELLUNGEN & ERINNERUNGEN
+// ═══════════════════════════════════════════════════
+function getSettings(){
+  try{return JSON.parse(localStorage.getItem('z_settings'))||{remind:false,interval:30,time:'08:00'};}
+  catch(e){return{remind:false,interval:30,time:'08:00'};}
+}
+function saveSettings(){
+  const s={
+    remind:document.getElementById('tog-remind').classList.contains('on'),
+    interval:parseInt(document.getElementById('sel-interval').value)||30,
+    time:document.getElementById('inp-remind-time').value||'08:00'
+  };
+  localStorage.setItem('z_settings',JSON.stringify(s));
+  if(s.remind) scheduleReminder(s);
+}
+function togRemind(){
+  const tog=document.getElementById('tog-remind');
+  const on=!tog.classList.contains('on');
+  tog.classList.toggle('on',on);
+  document.getElementById('remind-opts').style.display=on?'block':'none';
+  if(on){
+    if(!('Notification' in window)){alert('Benachrichtigungen werden von diesem Browser nicht unterstützt.');tog.classList.remove('on');return;}
+    Notification.requestPermission().then(p=>{
+      if(p!=='granted'){alert('Bitte Benachrichtigungen erlauben.');tog.classList.remove('on');document.getElementById('remind-opts').style.display='none';return;}
+      saveSettings();
+    });
+  } else {saveSettings();}
+}
+function scheduleReminder(s){
+  // Store next reminder date
+  const next=new Date();
+  next.setDate(next.getDate()+s.interval);
+  const[h,m]=s.time.split(':');
+  next.setHours(parseInt(h),parseInt(m),0,0);
+  localStorage.setItem('z_next_remind',next.toISOString());
+}
+function testReminder(){
+  if(Notification.permission!=='granted'){alert('Bitte zuerst Erinnerungen aktivieren.');return;}
+  new Notification('⚡ ZählerApp',{body:'Erinnerung: Bitte Zählerstände ablesen!',icon:'/VerbrauchsZ/icon-192.png'});
+}
+function checkReminder(){
+  const s=getSettings();
+  if(!s.remind||Notification.permission!=='granted')return;
+  const next=localStorage.getItem('z_next_remind');
+  if(!next)return;
+  if(new Date()>=new Date(next)){
+    new Notification('⚡ ZählerApp',{body:'Erinnerung: Bitte Zählerstände ablesen!',icon:'/VerbrauchsZ/icon-192.png'});
+    scheduleReminder(s);
+  }
+}
+function initSettings(){
+  const s=getSettings();
+  const tog=document.getElementById('tog-remind');
+  tog.classList.toggle('on',s.remind);
+  document.getElementById('remind-opts').style.display=s.remind?'block':'none';
+  document.getElementById('sel-interval').value=s.interval;
+  document.getElementById('inp-remind-time').value=s.time;
+  // Data info
+  const bld=DB.buildings.length,m=DB.meters.length,r=DB.readings.length;
+  document.getElementById('data-info').textContent=bld+' Gebäude · '+m+' Zähler · '+r+' Ablesungen';
+  checkReminder();
 }
 
 // ═══════════════════════════════════════════════════
